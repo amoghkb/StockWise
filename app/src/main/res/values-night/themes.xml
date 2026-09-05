@@ -1,0 +1,21 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.StockWise" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your dark theme here -->
+        <item name="colorPrimary">#0090FE</item>
+        <item name="colorPrimaryContainer">#1A3A5C</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#0090FE</item>
+        <item name="colorSecondaryContainer">#1A3A5C</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorTertiary">#0090FE</item>
+        <item name="colorSurface">#1E1E1E</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorSurfaceVariant">#2D2D2D</item>
+        <item name="colorOnSurfaceVariant">#999999</item>
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <!-- Bottom navigation colors -->
+        <item name="colorPrimaryInverse">#0090FE</item>
+    </style>
+</resources>

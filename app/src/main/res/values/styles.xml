@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ===== TEXT STYLES ===== -->
+    <style name="HeadingLarge">
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">@font/inter_bold</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="HeadingMedium">
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@font/inter_bold</item>
+        <item name="android:textColor">@color/black</item>
+    </style>
+
+    <style name="BodyText">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@font/inter_regular</item>
+        <item name="android:textColor">#666666</item>
+    </style>
+
+    <style name="FormLabel">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@font/inter_bold</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:layout_marginBottom">8dp</item>
+    </style>
+
+    <!-- ===== MENU ITEM STYLES ===== -->
+    <style name="MenuItemContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:background">@drawable/rounded_design_bg</item>
+    </style>
+
+    <style name="MenuItemTitle">
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@font/inter_bold</item>
+        <item name="android:textColor">#000000</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+
+    <style name="MenuItemSubtitle">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@font/inter_medium</item>
+        <item name="android:textColor">#666666</item>
+    </style>
+
+    <style name="TextContainer">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <!-- ===== ICON STYLES ===== -->
+    <style name="IconContainer">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">48dp</item>
+    </style>
+
+    <style name="IconSmall">
+        <item name="android:layout_width">24dp</item>
+        <item name="android:layout_height">24dp</item>
+    </style>
+
+    <style name="ChevronIcon">
+        <item name="android:layout_width">20dp</item>
+        <item name="android:layout_height">20dp</item>
+    </style>
+
+    <style name="BackButton">
+        <item name="android:layout_width">30dp</item>
+        <item name="android:layout_height">30dp</item>
+        <item name="android:padding">4dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- ===== FORM STYLES ===== -->
+    <style name="FormHeaderContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+    <style name="FormFieldContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <style name="FormFieldHalf">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <!-- ===== EDIT TEXT STYLES ===== -->
+    <style name="EditTextDefault">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:background">@drawable/rounded_edittext_bg</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@font/inter_regular</item>
+    </style>
+
+    <style name="EditTextMultiline">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:background">@drawable/rounded_edittext_bg</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@font/inter_regular</item>
+        <item name="android:gravity">top|start</item>
+        <item name="android:minLines">3</item>
+        <item name="android:maxLines">8</item>
+    </style>
+
+    <!-- ===== BUTTON STYLES ===== -->
+    <style name="ButtonBase">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@font/inter_regular</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:backgroundTint">@null</item>
+    </style>
+
+    <style name="ButtonCancel" parent="ButtonBase">
+        <item name="android:textColor">@color/black</item>
+        <item name="android:background">@drawable/rounded_design_button</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="ButtonSave" parent="ButtonBase">
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:background">@drawable/rounded_save_bg</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="ButtonContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <!-- ===== IMAGE SELECTOR STYLES ===== -->
+    <style name="ImageSelectorContainer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:background">@drawable/rounded_design_button</item>
+    </style>
+
+    <style name="ImagePreview">
+        <item name="android:layout_width">80dp</item>
+        <item name="android:layout_height">80dp</item>
+        <item name="android:scaleType">centerCrop</item>
+        <item name="android:padding">4dp</item>
+    </style>
+
+    <style name="ImageSelectorText">
+        <item name="android:textColor">#666666</item>
+        <item name="android:fontFamily">@font/inter_medium</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+</resources>

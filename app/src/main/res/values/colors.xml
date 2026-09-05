@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="stock_wise_primary">#0090FE</color>
+    <color name="stock_wise_secondary">#005DA7</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="grey">#ECEEF0</color>
+
+    <color name="light_blue">#E2ECFF</color>
+
+    <color name="nav_unselected">#9E9E9E</color>
+    <color name="nav_background">#FFFFFF</color>
+
+
+
+    <color name="toast_success_bg">#4CAF50</color>
+    <color name="toast_success_border">#388E3C</color>
+    <color name="toast_error_bg">#f44336</color>
+    <color name="toast_error_border">#d32f2f</color>
+    <color name="toast_info_bg">#2196F3</color>
+    <color name="toast_info_border">#1976D2</color>
+
+</resources>

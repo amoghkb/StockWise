@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">StockWise</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="cancel">Cancel</string>
+    <string name="add_a_single_product_to_inventory">Add a single product to inventory</string>
+    <string name="add_new_item">Add New Item</string>
+    <string name="create_new">Create New</string>
+    <string name="add_new_category">Add New Category</string>
+    <string name="create_a_new_product_grouping">Create a new product grouping</string>
+    <string name="new_category">New Category</string>
+    <string name="category_name">Category Name</string>
+    <string name="description_optional">Description (Optional)</string>
+    <string name="save_category">Save Category</string>
+    <string name="new_item">New Item</string>
+    <string name="item_image">Item Image</string>
+    <string name="category">Category</string>
+    <string name="select_category">Select Category</string>
+    <string name="tap_to_select_image">Tap to select image</string>
+    <string name="original_price">Original Price</string>
+    <string name="selling_price">Selling Price</string>
+    <string name="stock_in_godown">Stock In Godown</string>
+    <string name="item_name">Item Name</string>
+    <string name="e_g_Oil">e.g.,Oil</string>
+    <string name="_0_00">$0.00</string>
+    <string name="_0">0</string>
+    <string name="product_details">Product Details...</string>
+    <string name="save_item">Save Item</string>
+</resources>
