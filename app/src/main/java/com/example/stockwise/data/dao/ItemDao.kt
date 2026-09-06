@@ -18,23 +18,9 @@ interface ItemDao {
     @Update
     suspend fun updateItem(item: Item)
 
-    // Soft delete - mark as deleted
     @Query("UPDATE items SET isDeleted = 1, deletedAt = :deletedAt WHERE id = :itemId")
-    suspend fun softDeleteItem(itemId: Long, deletedAt: Long = System.currentTimeMillis())
+    suspend fun softDeleteItem(itemId: String, deletedAt: Long = System.currentTimeMillis())
 
-    // Hard delete - permanently remove
-    @Query("DELETE FROM items WHERE id = :itemId")
-    suspend fun hardDeleteItem(itemId: Long)
-
-    // Hard delete all items in a category
-    @Query("DELETE FROM items WHERE categoryId = :categoryId")
-    suspend fun hardDeleteItemsByCategory(categoryId: Long)
-
-    // Restore soft deleted
-    @Query("UPDATE items SET isDeleted = 0, deletedAt = NULL WHERE id = :itemId")
-    suspend fun restoreItem(itemId: Long)
-
-    // Get all active items with category (not deleted)
     @Query("""
         SELECT items.*, categories.name as categoryName 
         FROM items 
@@ -44,16 +30,6 @@ interface ItemDao {
     """)
     fun getAllActiveItemsWithCategory(): Flow<List<ItemWithCategory>>
 
-    // Get all items with category (including deleted)
-    @Query("""
-        SELECT items.*, categories.name as categoryName 
-        FROM items 
-        INNER JOIN categories ON items.categoryId = categories.id 
-        ORDER BY items.name ASC
-    """)
-    fun getAllItemsWithCategory(): Flow<List<ItemWithCategory>>
-
-    // Get only deleted items
     @Query("""
         SELECT items.*, categories.name as categoryName 
         FROM items 
@@ -69,7 +45,7 @@ interface ItemDao {
         INNER JOIN categories ON items.categoryId = categories.id 
         WHERE items.id = :itemId AND items.isDeleted = 0
     """)
-    suspend fun getActiveItemWithCategoryById(itemId: Long): ItemWithCategory?
+    suspend fun getActiveItemWithCategoryById(itemId: String): ItemWithCategory?
 
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -77,7 +53,7 @@ interface ItemDao {
         INNER JOIN categories ON items.categoryId = categories.id 
         WHERE items.categoryId = :categoryId AND items.isDeleted = 0
     """)
-    fun getActiveItemsByCategory(categoryId: Long): Flow<List<ItemWithCategory>>
+    fun getActiveItemsByCategory(categoryId: String): Flow<List<ItemWithCategory>>
 
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -95,7 +71,7 @@ interface ItemDao {
     suspend fun getActiveItemCount(): Int
 
     @Query("SELECT SUM(stock) FROM items WHERE categoryId = :categoryId AND isDeleted = 0")
-    suspend fun getActiveTotalStockByCategory(categoryId: Long): Int
+    suspend fun getActiveTotalStockByCategory(categoryId: String): Int
 
     @Query("SELECT SUM(stock) FROM items WHERE isDeleted = 0")
     suspend fun getTotalActiveStock(): Int

@@ -1,18 +1,44 @@
 package com.example.stockwise.data.repository
 
-
 import com.example.stockwise.AppDatabase
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategory
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
+import java.util.UUID
 
 class ItemRepository(private val database: AppDatabase) {
 
     private val itemDao = database.itemDao()
 
-    suspend fun insertItem(item: Item): Long {
-        return itemDao.insertItem(item)
+    suspend fun insertItem(item: Item): String {
+        itemDao.insertItem(item)
+        return item.id
+    }
+
+    suspend fun insertItem(
+        categoryId: String,
+        name: String,
+        originalPrice: Double,
+        sellingPrice: Double,
+        stock: Int,
+        description: String? = null,
+        imageUri: String? = null
+    ): String {
+        val item = Item(
+            id = UUID.randomUUID().toString(),
+            categoryId = categoryId,
+            name = name,
+            originalPrice = originalPrice,
+            sellingPrice = sellingPrice,
+            stock = stock,
+            description = description,
+            imageUri = imageUri,
+            createdAt = Date(),
+            updatedAt = Date()
+        )
+        itemDao.insertItem(item)
+        return item.id
     }
 
     suspend fun updateItem(item: Item) {
@@ -20,35 +46,23 @@ class ItemRepository(private val database: AppDatabase) {
         itemDao.updateItem(updatedItem)
     }
 
-    suspend fun softDeleteItem(itemId: Long) {
+    suspend fun softDeleteItem(itemId: String) {
         itemDao.softDeleteItem(itemId)
-    }
-
-    suspend fun hardDeleteItem(itemId: Long) {
-        itemDao.hardDeleteItem(itemId)
-    }
-
-    suspend fun restoreItem(itemId: Long) {
-        itemDao.restoreItem(itemId)
     }
 
     fun getAllActiveItemsWithCategory(): Flow<List<ItemWithCategory>> {
         return itemDao.getAllActiveItemsWithCategory()
     }
 
-    fun getAllItemsWithCategory(): Flow<List<ItemWithCategory>> {
-        return itemDao.getAllItemsWithCategory()
-    }
-
     fun getDeletedItemsWithCategory(): Flow<List<ItemWithCategory>> {
         return itemDao.getDeletedItemsWithCategory()
     }
 
-    suspend fun getActiveItemWithCategoryById(itemId: Long): ItemWithCategory? {
+    suspend fun getActiveItemWithCategoryById(itemId: String): ItemWithCategory? {
         return itemDao.getActiveItemWithCategoryById(itemId)
     }
 
-    fun getActiveItemsByCategory(categoryId: Long): Flow<List<ItemWithCategory>> {
+    fun getActiveItemsByCategory(categoryId: String): Flow<List<ItemWithCategory>> {
         return itemDao.getActiveItemsByCategory(categoryId)
     }
 
@@ -64,7 +78,7 @@ class ItemRepository(private val database: AppDatabase) {
         return itemDao.getActiveItemCount()
     }
 
-    suspend fun getActiveTotalStockByCategory(categoryId: Long): Int {
+    suspend fun getActiveTotalStockByCategory(categoryId: String): Int {
         return itemDao.getActiveTotalStockByCategory(categoryId)
     }
 
