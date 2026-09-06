@@ -5,12 +5,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.example.stockwise.R
 import com.example.stockwise.commons.ReusableBottomSheet
+import com.example.stockwise.commons.toastError
+import com.example.stockwise.commons.toastSuccess
 import com.example.stockwise.databinding.AddProductSheetBinding
 import com.example.stockwise.databinding.FragmentProductsBinding
 import com.example.stockwise.viewmodels.ProductsViewModel
@@ -23,7 +24,6 @@ class ProductsFragment : Fragment() {
     private var _binding: FragmentProductsBinding? = null
     private val binding get() = _binding!!
 
-    // Use lateinit var with manual initialization
     private lateinit var viewModel: ProductsViewModel
 
     override fun onCreateView(
@@ -32,10 +32,7 @@ class ProductsFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentProductsBinding.inflate(inflater, container, false)
-
-        // Manually initialize ViewModel with Hilt's factory
         viewModel = ViewModelProvider(this)[ProductsViewModel::class.java]
-
         return binding.root
     }
 
@@ -48,61 +45,55 @@ class ProductsFragment : Fragment() {
             openAddProductSheet()
         }
 
-        // Load initial data
         viewModel.loadAllData()
     }
 
     private fun observeViewModel() {
-        // Observe items
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.items.collect { items ->
                 updateProductList(items)
             }
         }
 
-        // Observe category save success
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.categorySaveSuccess.collect { success ->
                 if (success) {
-                    Toast.makeText(requireContext(), "Category saved successfully!", Toast.LENGTH_SHORT).show()
+                    // FIX: Use String extension with context parameter
+                    "Category saved successfully!".toastSuccess(requireContext())
                     viewModel.clearSaveSuccess()
                 }
             }
         }
 
-        // Observe item save success
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.itemSaveSuccess.collect { success ->
                 if (success) {
-                    Toast.makeText(requireContext(), "Item saved successfully!", Toast.LENGTH_SHORT).show()
+                    // FIX: Use String extension with context parameter
+                    "Item saved successfully!".toastSuccess(requireContext())
                     viewModel.clearSaveSuccess()
                 }
             }
         }
 
-        // Observe errors
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.error.collect { error ->
                 error?.let {
-                    Toast.makeText(requireContext(), it, Toast.LENGTH_LONG).show()
+                    // FIX: Use String extension with context parameter
+                    it.toastError(requireContext())
                     viewModel.clearError()
                 }
             }
         }
 
-        // Observe loading state
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isLoading.collect { isLoading ->
                 // Show/hide loading indicator
-                // binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
             }
         }
     }
 
     private fun updateProductList(items: List<com.example.stockwise.data.entities.ItemWithCategory>) {
-        // TODO: Update your RecyclerView adapter here
-        // For now, you can update a TextView with the count
-        // binding.tvItemCount.text = "Items: ${items.size}"
+        // TODO: Update RecyclerView
     }
 
     private fun openAddProductSheet() {
@@ -113,13 +104,9 @@ class ProductsFragment : Fragment() {
         sheet.setContentBinder { content ->
             val sheetBinding = AddProductSheetBinding.bind(content)
 
-            // Setup category dropdown
             setupCategoryDropdown(sheetBinding)
-
-            // Initially show menu
             showMenu(sheetBinding)
 
-            // ===== MENU BUTTONS =====
             sheetBinding.btnAddCategory.setOnClickListener {
                 showCategoryForm(sheetBinding)
             }
@@ -133,7 +120,6 @@ class ProductsFragment : Fragment() {
                 sheet.dismiss()
             }
 
-            // ===== CATEGORY FORM =====
             sheetBinding.btnBackToMenu.setOnClickListener {
                 showMenu(sheetBinding)
                 clearCategoryForm(sheetBinding)
@@ -147,7 +133,6 @@ class ProductsFragment : Fragment() {
                 saveCategory(sheetBinding, sheet)
             }
 
-            // ===== ITEM FORM =====
             sheetBinding.btnBackToMenuFromItem.setOnClickListener {
                 showMenu(sheetBinding)
                 clearItemForm(sheetBinding)
@@ -161,22 +146,33 @@ class ProductsFragment : Fragment() {
                 saveItem(sheetBinding, sheet)
             }
 
-            // ===== IMAGE SELECTION =====
             sheetBinding.btnSelectImage.setOnClickListener {
-                Toast.makeText(requireContext(), "Image selection coming soon", Toast.LENGTH_SHORT).show()
+                "Image selection coming soon".toastError(requireContext())
             }
         }
 
         sheet.show(parentFragmentManager, "AddProductSheet")
     }
 
+    // ===== SAVE CATEGORY WITH VALIDATION =====
     private fun saveCategory(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         val name = binding.etCategoryName.text.toString().trim()
         val description = binding.etCategoryDescription.text.toString().trim()
 
-        if (name.isEmpty()) {
-            Toast.makeText(requireContext(), "Please enter a category name", Toast.LENGTH_SHORT).show()
-            return
+        // Validation - Show only first error from top
+        when {
+            name.isEmpty() -> {
+                "Please enter a category name".toastError(requireContext())
+                return
+            }
+            name.length < 2 -> {
+                "Category name must be at least 2 characters".toastError(requireContext())
+                return
+            }
+            name.length > 50 -> {
+                "Category name must be less than 50 characters".toastError(requireContext())
+                return
+            }
         }
 
         viewModel.saveCategory(name, description.takeIf { it.isNotEmpty() })
@@ -184,6 +180,7 @@ class ProductsFragment : Fragment() {
         sheet.dismiss()
     }
 
+    // ===== SAVE ITEM WITH VALIDATION =====
     private fun saveItem(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         val categoryName = binding.etCategory.text.toString().trim()
         val name = binding.etItemName.text.toString().trim()
@@ -192,34 +189,79 @@ class ProductsFragment : Fragment() {
         val stockStr = binding.etStock.text.toString().trim()
         val description = binding.etItemDescription.text.toString().trim()
 
-        // Use ViewModel's validation
-        val validation = viewModel.validateItemInput(
-            name = name,
-            categoryName = categoryName,
-            originalPriceStr = originalPriceStr,
-            sellingPriceStr = sellingPriceStr,
-            stockStr = stockStr
-        )
-
-        if (!validation.isValid) {
-            validation.errors.forEach { error ->
-                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+        // Validation - Show only first error from top to bottom
+        when {
+            categoryName.isEmpty() -> {
+                "Please select a category".toastError(requireContext())
+                return
             }
+            name.isEmpty() -> {
+                "Please enter an item name".toastError(requireContext())
+                return
+            }
+            name.length < 2 -> {
+                "Item name must be at least 2 characters".toastError(requireContext())
+                return
+            }
+            name.length > 100 -> {
+                "Item name must be less than 100 characters".toastError(requireContext())
+                return
+            }
+            originalPriceStr.isEmpty() -> {
+                "Please enter the original price".toastError(requireContext())
+                return
+            }
+            originalPriceStr.toDoubleOrNull() == null -> {
+                "Please enter a valid original price".toastError(requireContext())
+                return
+            }
+            originalPriceStr.toDoubleOrNull()!! < 0 -> {
+                "Original price cannot be negative".toastError(requireContext())
+                return
+            }
+            sellingPriceStr.isEmpty() -> {
+                "Please enter the selling price".toastError(requireContext())
+                return
+            }
+            sellingPriceStr.toDoubleOrNull() == null -> {
+                "Please enter a valid selling price".toastError(requireContext())
+                return
+            }
+            sellingPriceStr.toDoubleOrNull()!! < 0 -> {
+                "Selling price cannot be negative".toastError(requireContext())
+                return
+            }
+            stockStr.isEmpty() -> {
+                "Please enter the stock quantity".toastError(requireContext())
+                return
+            }
+            stockStr.toIntOrNull() == null -> {
+                "Please enter a valid stock quantity".toastError(requireContext())
+                return
+            }
+            stockStr.toIntOrNull()!! < 0 -> {
+                "Stock quantity cannot be negative".toastError(requireContext())
+                return
+            }
+        }
+
+        // Get the category ID
+        val category = viewModel.getCategoryByName(categoryName)
+        if (category == null) {
+            "Selected category not found".toastError(requireContext())
             return
         }
 
-        // Save the item using validated data
-        validation.category?.let { category ->
-            viewModel.saveItem(
-                categoryId = category.id,
-                name = name,
-                originalPrice = validation.originalPrice,
-                sellingPrice = validation.sellingPrice,
-                stock = validation.stock,
-                description = description.takeIf { it.isNotEmpty() },
-                imageUri = null
-            )
-        }
+        // Save the item
+        viewModel.saveItem(
+            categoryId = category.id,
+            name = name,
+            originalPrice = originalPriceStr.toDouble(),
+            sellingPrice = sellingPriceStr.toDouble(),
+            stock = stockStr.toInt(),
+            description = description.takeIf { it.isNotEmpty() },
+            imageUri = null
+        )
 
         clearItemForm(binding)
         sheet.dismiss()
@@ -280,7 +322,7 @@ class ProductsFragment : Fragment() {
     private fun updateCategoryDropdown(binding: AddProductSheetBinding) {
         val names = viewModel.categoryNames.value
         if (names.isEmpty()) {
-            Toast.makeText(requireContext(), "No categories available. Please create one first.", Toast.LENGTH_SHORT).show()
+            "No categories available. Please create one first.".toastError(requireContext())
             return
         }
 
