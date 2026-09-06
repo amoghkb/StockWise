@@ -323,11 +323,17 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
+    fun getItemById(itemId: String): Item? {
+        return _items.value.find { it.item.id == itemId }?.item
+    }
     fun updateItem(item: Item) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 itemRepository.updateItem(item)
+                // Force refresh items to reflect changes in UI
+                observeItems()
+                _itemSaveSuccess.value = true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

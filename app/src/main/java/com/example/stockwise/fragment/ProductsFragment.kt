@@ -1,6 +1,7 @@
 package com.example.stockwise.fragment
 
 import android.os.Bundle
+import android.text.Html
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -38,19 +39,13 @@ class ProductsFragment : Fragment() {
     // 2. SEARCH STATE
     // ==============================
 
-    // The single source of truth for what's typed in the search bar.
-    // Every data update (from the ViewModel) re-renders against this,
-    // so the list and the query never fall out of sync.
     private var currentQuery: String = ""
 
-    // Tracks which category names the user has manually expanded/collapsed,
-    // so that state survives re-renders (e.g. typing in the search box no
-    // longer resets every card back to collapsed).
     private val expandedCategories = mutableSetOf<String>()
     private var hasInitializedDefaultExpansion = false
 
     // ==============================
-    // 3. BOTTOM SHEET DROPDOWN COMPONENTS (single select, unchanged)
+    // 3. BOTTOM SHEET DROPDOWN COMPONENTS
     // ==============================
 
     private var bottomSheetDropdownPopup: PopupWindow? = null
@@ -141,7 +136,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 6. UI SETUP — single search bar drives everything now
+    // 6. UI SETUP
     // ==============================
 
     private fun setupClickListeners() {
@@ -156,18 +151,9 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 7. RENDER — filters categories/items locally against currentQuery
+    // 7. RENDER
     // ==============================
 
-    /**
-     * Always works off the ViewModel's full, unfiltered lists and applies
-     * currentQuery locally. This means:
-     *  - empty query -> every category + every item (original behavior)
-     *  - query matches a CATEGORY name -> that whole category shows, with
-     *    all of its items
-     *  - query matches an ITEM name/SKU -> the parent category shows, but
-     *    only with the matching item(s) under it
-     */
     private fun renderProducts() {
         if (_binding == null) return
 
@@ -190,8 +176,6 @@ class ProductsFragment : Fragment() {
             return
         }
 
-        // Default: expand only the first category, one time, the first time
-        // data loads. After that we respect whatever the user has toggled.
         if (!hasInitializedDefaultExpansion) {
             hasInitializedDefaultExpansion = true
         }
@@ -215,13 +199,10 @@ class ProductsFragment : Fragment() {
                 }
             }
 
-            // Skip categories that don't match the search at all.
             if (query.isNotEmpty() && !categoryMatches && itemsToShow.isEmpty()) {
                 return@forEach
             }
 
-            // While actively searching, auto-expand any card that has a hit
-            // so results are visible without an extra tap.
             val forceExpanded = query.isNotEmpty()
             val isExpanded = forceExpanded || expandedCategories.contains(category.name)
 
@@ -300,11 +281,6 @@ class ProductsFragment : Fragment() {
             itemsContainer.addView(emptyText)
         }
 
-        // FIX: explicitly apply the expand/collapse state to the view every
-        // single time the card is built. Previously this was only done for
-        // the first category, so every other card kept whatever visibility
-        // its inflated layout happened to default to — which is why items
-        // looked wrong/inconsistent under non-first categories.
         var expanded = isExpanded
         applyExpansionState(itemsContainer, chevron, expanded)
 
@@ -336,22 +312,71 @@ class ProductsFragment : Fragment() {
         val qtyText = itemView.findViewById<TextView>(R.id.tvItemQty)
         val itemImage = itemView.findViewById<ImageView>(R.id.ivItemImage)
 
+        // Apply styles programmatically
+        nameText.setTextAppearance(com.example.stockwise.R.style.BodyText)
+        skuText.setTextAppearance(com.example.stockwise.R.style.BodyText)
+        priceText.setTextAppearance(com.example.stockwise.R.style.BodyText)
+        qtyText.setTextAppearance(com.example.stockwise.R.style.BodyText)
+
+        // Set price text color to blue
+        priceText.setTextColor(ContextCompat.getColor(requireContext(), R.color.stock_wise_primary))
+
         nameText.text = item.name
         skuText.text = "SKU: ${item.id.take(8).uppercase()}"
-        priceText.text = "$${String.format("%.2f", item.sellingPrice)}"
+        priceText.text = "\u20B9${String.format("%.2f", item.sellingPrice)}"
         qtyText.text = "Qty: ${item.stock}"
 
-        if (item.imageUri != null && item.imageUri!!.isNotEmpty()) {
-            itemImage.setImageResource(R.drawable.ic_belts)
-        } else {
-            itemImage.setImageResource(R.drawable.ic_belts)
+        // Keep image simple - using default drawable
+        itemImage.setImageResource(R.drawable.ic_belts)
+
+        // ADD CLICK LISTENER FOR ITEM NAVIGATION
+        itemView.setOnClickListener {
+            navigateToItemDetail(itemWithCategory)
         }
+
+        // Add ripple effect for better UX
+        itemView.isClickable = true
+        itemView.isFocusable = true
+        itemView.background = ContextCompat.getDrawable(requireContext(), R.drawable.ripple_effect)
 
         return itemView
     }
+    // ==============================
+    // NAVIGATION TO ITEM DETAIL
+    // ==============================
+
+    private fun navigateToItemDetail(itemWithCategory: ItemWithCategory) {
+        // Create bundle with all item data
+        val bundle = Bundle().apply {
+            putString("item_id", itemWithCategory.item.id)
+            putString("item_name", itemWithCategory.item.name)
+            putString("category_name", itemWithCategory.categoryName)
+            putString("description", itemWithCategory.item.description ?: "No description available")
+            putString("sku", itemWithCategory.item.id.take(8).uppercase())
+            putString("brand", "N/A")
+            putInt("current_stock", itemWithCategory.item.stock)
+            putDouble("cost_price", itemWithCategory.item.originalPrice)
+            putDouble("selling_price", itemWithCategory.item.sellingPrice)
+            putInt("total_sales", 0)
+            putString("category_id", itemWithCategory.item.categoryId)
+        }
+
+        // Create the fragment and set arguments
+        val fragment = ItemDetailFragment()
+        fragment.arguments = bundle
+
+        // Get the container ID from the activity's layout
+        val containerId = android.R.id.content
+
+        // Perform the fragment transaction
+        parentFragmentManager.beginTransaction()
+            .replace(containerId, fragment)
+            .addToBackStack("ItemDetailFragment")
+            .commit()
+    }
 
     // ==============================
-    // 8. BOTTOM SHEET - OPEN & BIND (unchanged apart from shared popup helper)
+    // 8. BOTTOM SHEET - OPEN & BIND
     // ==============================
 
     private fun openAddProductSheet() {
@@ -618,7 +643,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 12. BOTTOM SHEET DROPDOWN (single select for Add Item form — unchanged)
+    // 12. BOTTOM SHEET DROPDOWN
     // ==============================
 
     private fun setupBottomSheetCategoryDropdown(binding: AddProductSheetBinding) {
