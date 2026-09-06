@@ -1,15 +1,18 @@
 package com.example.stockwise.data.repository
 
-import com.example.stockwise.AppDatabase
+import com.example.stockwise.data.dao.ItemDao
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategory
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class ItemRepository(private val database: AppDatabase) {
-
-    private val itemDao = database.itemDao()
+@Singleton
+class ItemRepository @Inject constructor(
+    private val itemDao: ItemDao
+) {
 
     suspend fun insertItem(item: Item): String {
         itemDao.insertItem(item)
@@ -47,7 +50,7 @@ class ItemRepository(private val database: AppDatabase) {
     }
 
     suspend fun softDeleteItem(itemId: String) {
-        itemDao.softDeleteItem(itemId)
+        itemDao.softDeleteItem(itemId, System.currentTimeMillis())
     }
 
     fun getAllActiveItemsWithCategory(): Flow<List<ItemWithCategory>> {

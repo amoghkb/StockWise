@@ -8,7 +8,9 @@ import com.example.stockwise.fragment.CalendarFragment
 import com.example.stockwise.fragment.DashboardFragment
 import com.example.stockwise.fragment.ProductsFragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var bottomNavigationView: BottomNavigationView

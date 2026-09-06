@@ -1,22 +1,39 @@
 package com.example.stockwise.data.repository
 
-import com.example.stockwise.AppDatabase
+import com.example.stockwise.data.dao.CategoryDao
+import com.example.stockwise.data.dao.ItemDao
 import com.example.stockwise.data.entities.Category
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class CategoryRepository(private val database: AppDatabase) {
-
-    private val categoryDao = database.categoryDao()
-    private val itemDao = database.itemDao()
+@Singleton
+class CategoryRepository @Inject constructor(
+    private val categoryDao: CategoryDao,
+    private val itemDao: ItemDao
+) {
 
     suspend fun insertCategory(category: Category): String {
         categoryDao.insertCategory(category)
         return category.id
     }
 
-
+    suspend fun insertCategory(
+        name: String,
+        description: String? = null
+    ): String {
+        val category = Category(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            description = description,
+            createdAt = Date(),
+            updatedAt = Date()
+        )
+        categoryDao.insertCategory(category)
+        return category.id
+    }
 
     suspend fun updateCategory(category: Category) {
         val updatedCategory = category.copy(updatedAt = Date())
@@ -24,7 +41,7 @@ class CategoryRepository(private val database: AppDatabase) {
     }
 
     suspend fun softDeleteCategory(categoryId: String) {
-        categoryDao.softDeleteCategory(categoryId)
+        categoryDao.softDeleteCategory(categoryId, System.currentTimeMillis())
     }
 
     fun getAllActiveCategories(): Flow<List<Category>> {
