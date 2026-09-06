@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@android:color/white"
+    android:padding="8dp">
+
+    <!-- Search Bar -->
+    <EditText
+        android:id="@+id/etSearchCategory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Search categories..."
+        android:inputType="text"
+        android:padding="12dp"
+        android:background="@drawable/rounded_edittext_bg"
+        android:textSize="14sp"
+        android:drawableStart="@drawable/ic_search"
+        android:drawablePadding="8dp"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Category List - No separators between items -->
+    <ListView
+        android:id="@+id/lvCategories"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxHeight="200dp"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="0dp"
+        android:paddingVertical="2dp" />
+
+</LinearLayout>

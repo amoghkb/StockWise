@@ -4,7 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
+import android.widget.*
+import androidx.appcompat.widget.AppCompatEditText
+import androidx.core.content.ContextCompat
+import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -25,6 +28,12 @@ class ProductsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: ProductsViewModel
+
+    // Custom dropdown components
+    private var customDropdownPopup: PopupWindow? = null
+    private var searchEditText: EditText? = null
+    private var listView: ListView? = null
+    private var filteredCategories = mutableListOf<String>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,7 +67,6 @@ class ProductsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.categorySaveSuccess.collect { success ->
                 if (success) {
-                    // FIX: Use String extension with context parameter
                     "Category saved successfully!".toastSuccess(requireContext())
                     viewModel.clearSaveSuccess()
                 }
@@ -68,7 +76,6 @@ class ProductsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.itemSaveSuccess.collect { success ->
                 if (success) {
-                    // FIX: Use String extension with context parameter
                     "Item saved successfully!".toastSuccess(requireContext())
                     viewModel.clearSaveSuccess()
                 }
@@ -78,7 +85,6 @@ class ProductsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.error.collect { error ->
                 error?.let {
-                    // FIX: Use String extension with context parameter
                     it.toastError(requireContext())
                     viewModel.clearError()
                 }
@@ -95,7 +101,6 @@ class ProductsFragment : Fragment() {
     private fun updateProductList(items: List<com.example.stockwise.data.entities.ItemWithCategory>) {
         // TODO: Update RecyclerView
     }
-
     private fun openAddProductSheet() {
         val sheet = ReusableBottomSheet.newInstance(
             layoutRes = R.layout.add_product_sheet
@@ -107,16 +112,22 @@ class ProductsFragment : Fragment() {
             setupCategoryDropdown(sheetBinding)
             showMenu(sheetBinding)
 
+            sheetBinding.etCategory.post {
+                sheetBinding.etCategory.clearFocus()
+                sheetBinding.etCategory.isFocusable = false
+                sheetBinding.etCategory.isFocusableInTouchMode = false
+            }
+
             sheetBinding.btnAddCategory.setOnClickListener {
                 showCategoryForm(sheetBinding)
             }
 
             sheetBinding.btnAddItem.setOnClickListener {
                 showItemForm(sheetBinding)
-                updateCategoryDropdown(sheetBinding)
             }
 
             sheetBinding.btnCancel.setOnClickListener {
+                customDropdownPopup?.dismiss()
                 sheet.dismiss()
             }
 
@@ -126,6 +137,7 @@ class ProductsFragment : Fragment() {
             }
 
             sheetBinding.btnCategoryCancel.setOnClickListener {
+                customDropdownPopup?.dismiss()
                 sheet.dismiss()
             }
 
@@ -139,6 +151,7 @@ class ProductsFragment : Fragment() {
             }
 
             sheetBinding.btnItemCancel.setOnClickListener {
+                customDropdownPopup?.dismiss()
                 sheet.dismiss()
             }
 
@@ -153,13 +166,31 @@ class ProductsFragment : Fragment() {
 
         sheet.show(parentFragmentManager, "AddProductSheet")
     }
+    private fun showMenu(binding: AddProductSheetBinding) {
+        customDropdownPopup?.dismiss()
+        binding.menuContainer.visibility = View.VISIBLE
+        binding.categoryFormContainer.visibility = View.GONE
+        binding.itemFormContainer.visibility = View.GONE
+    }
 
-    // ===== SAVE CATEGORY WITH VALIDATION =====
+
+    /*              CATEGORY              */
+    private fun showCategoryForm(binding: AddProductSheetBinding) {
+        customDropdownPopup?.dismiss()
+        binding.menuContainer.visibility = View.GONE
+        binding.categoryFormContainer.visibility = View.VISIBLE
+        binding.itemFormContainer.visibility = View.GONE
+    }
+    private fun clearCategoryForm(binding: AddProductSheetBinding) {
+        binding.etCategoryName.text?.clear()
+        binding.etCategoryDescription.text?.clear()
+    }
+
+    //SAVE CATEGORY WITH VALIDATION
     private fun saveCategory(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         val name = binding.etCategoryName.text.toString().trim()
         val description = binding.etCategoryDescription.text.toString().trim()
 
-        // Validation - Show only first error from top
         when {
             name.isEmpty() -> {
                 "Please enter a category name".toastError(requireContext())
@@ -177,10 +208,13 @@ class ProductsFragment : Fragment() {
 
         viewModel.saveCategory(name, description.takeIf { it.isNotEmpty() })
         clearCategoryForm(binding)
+        customDropdownPopup?.dismiss()
         sheet.dismiss()
     }
 
-    // ===== SAVE ITEM WITH VALIDATION =====
+
+    /*              ITEM              */
+    //SAVE ITEM WITH VALIDATION
     private fun saveItem(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         val categoryName = binding.etCategory.text.toString().trim()
         val name = binding.etItemName.text.toString().trim()
@@ -189,7 +223,6 @@ class ProductsFragment : Fragment() {
         val stockStr = binding.etStock.text.toString().trim()
         val description = binding.etItemDescription.text.toString().trim()
 
-        // Validation - Show only first error from top to bottom
         when {
             categoryName.isEmpty() -> {
                 "Please select a category".toastError(requireContext())
@@ -245,14 +278,12 @@ class ProductsFragment : Fragment() {
             }
         }
 
-        // Get the category ID
         val category = viewModel.getCategoryByName(categoryName)
         if (category == null) {
             "Selected category not found".toastError(requireContext())
             return
         }
 
-        // Save the item
         viewModel.saveItem(
             categoryId = category.id,
             name = name,
@@ -264,36 +295,150 @@ class ProductsFragment : Fragment() {
         )
 
         clearItemForm(binding)
+        customDropdownPopup?.dismiss()
         sheet.dismiss()
     }
 
-    // ===== NAVIGATION =====
+    //CUSTOM DROPDOWN WITH SEARCH
+    private fun setupCategoryDropdown(binding: AddProductSheetBinding) {
+        binding.etCategory.apply {
+            // Make it non-editable but clickable
+            isFocusable = false
+            isFocusableInTouchMode = false
+            isClickable = true
+            isCursorVisible = false
+            inputType = android.text.InputType.TYPE_NULL
 
-    private fun showMenu(binding: AddProductSheetBinding) {
-        binding.menuContainer.visibility = View.VISIBLE
-        binding.categoryFormContainer.visibility = View.GONE
-        binding.itemFormContainer.visibility = View.GONE
+            // Clear any focus
+            clearFocus()
+
+            // Don't request focus
+            isFocusableInTouchMode = false
+
+            setOnClickListener {
+                // Only open dropdown when explicitly clicked
+                showCustomDropdown(binding)
+            }
+        }
     }
+    private fun showCustomDropdown(binding: AddProductSheetBinding) {
+        val categories = viewModel.categoryNames.value
+        if (categories.isEmpty()) {
+            "No categories available. Please create one first.".toastError(requireContext())
+            return
+        }
 
-    private fun showCategoryForm(binding: AddProductSheetBinding) {
-        binding.menuContainer.visibility = View.GONE
-        binding.categoryFormContainer.visibility = View.VISIBLE
-        binding.itemFormContainer.visibility = View.GONE
+        // Dismiss existing popup
+        customDropdownPopup?.dismiss()
+
+        // Create popup window
+        val popupView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dropdown_category_search, null)
+
+        searchEditText = popupView.findViewById(R.id.etSearchCategory)
+        listView = popupView.findViewById(R.id.lvCategories)
+
+        // Set up filtered list
+        filteredCategories = categories.toMutableList()
+        val adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_list_item_1,
+            filteredCategories
+        )
+        listView?.adapter = adapter
+
+        // Set up search
+        searchEditText?.doOnTextChanged { text, _, _, _ ->
+            filterCategories(text.toString(), adapter)
+        }
+
+        // List item click listener
+        listView?.setOnItemClickListener { _, _, position, _ ->
+            val selectedCategory = filteredCategories[position]
+            binding.etCategory.setText(selectedCategory)
+            customDropdownPopup?.dismiss()
+        }
+
+        // Get screen dimensions
+        val screenHeight = resources.displayMetrics.heightPixels
+        val screenWidth = resources.displayMetrics.widthPixels
+
+        // Get the location of the EditText on screen
+        val location = IntArray(2)
+        binding.etCategory.getLocationOnScreen(location)
+        val editTextBottom = location[1] + binding.etCategory.height
+
+        // Calculate available space below the EditText
+        val spaceBelow = screenHeight - editTextBottom - 20 // Subtract small margin
+
+        // Use 95% of available space below
+        val maxHeight = (spaceBelow * 0.95).toInt()
+
+        // Ensure minimum height
+        val finalHeight = maxOf(maxHeight, 400) // At least 400px
+
+        // Create and show popup with maximum height
+        customDropdownPopup = PopupWindow(
+            popupView,
+            (screenWidth * 0.9).toInt(), // 90% of screen width
+            finalHeight,
+            true
+        ).apply {
+            isFocusable = true
+            isOutsideTouchable = true
+
+            setBackgroundDrawable(
+                ContextCompat.getDrawable(requireContext(), R.drawable.rounded_dropdown_bg)
+            )
+
+            // Center the dropdown horizontally
+            val offsetX = (binding.etCategory.width - (screenWidth * 0.9).toInt()) / 2
+            showAsDropDown(binding.etCategory, offsetX, 8)
+
+            setOnDismissListener {
+                customDropdownPopup = null
+            }
+        }
     }
+    private fun filterCategories(query: String, adapter: ArrayAdapter<String>) {
+        val categories = viewModel.categoryNames.value
+        filteredCategories = if (query.isEmpty()) {
+            categories.toMutableList()
+        } else {
+            categories.filter { it.contains(query, ignoreCase = true) }.toMutableList()
+        }
+        adapter.clear()
+        adapter.addAll(filteredCategories)
+        adapter.notifyDataSetChanged()
 
+        // Show "No results" if empty
+        if (filteredCategories.isEmpty()) {
+            // Optionally show a "No results" message
+        }
+    }
     private fun showItemForm(binding: AddProductSheetBinding) {
+        customDropdownPopup?.dismiss()
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.GONE
         binding.itemFormContainer.visibility = View.VISIBLE
+
+        // Clear focus from all fields to prevent keyboard from showing
+        binding.etCategory.clearFocus()
+        binding.etItemName.clearFocus()
+        binding.etOriginalPrice.clearFocus()
+        binding.etSellingPrice.clearFocus()
+        binding.etStock.clearFocus()
+        binding.etItemDescription.clearFocus()
+
+        // Ensure the category field doesn't have focus
+        binding.etCategory.isFocusable = false
+        binding.etCategory.isFocusableInTouchMode = false
+        binding.etCategory.clearFocus()
+
+        // Hide keyboard if it's showing
+        val inputMethodManager = requireContext().getSystemService(android.app.Activity.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        inputMethodManager.hideSoftInputFromWindow(binding.root.windowToken, 0)
     }
-
-    // ===== FORM CLEAR =====
-
-    private fun clearCategoryForm(binding: AddProductSheetBinding) {
-        binding.etCategoryName.text?.clear()
-        binding.etCategoryDescription.text?.clear()
-    }
-
     private fun clearItemForm(binding: AddProductSheetBinding) {
         binding.etItemName.text?.clear()
         binding.etCategory.text?.clear()
@@ -301,42 +446,13 @@ class ProductsFragment : Fragment() {
         binding.etSellingPrice.text?.clear()
         binding.etStock.text?.clear()
         binding.etItemDescription.text?.clear()
-    }
-
-    // ===== CATEGORY DROPDOWN =====
-
-    private fun setupCategoryDropdown(binding: AddProductSheetBinding) {
-        val adapter = ArrayAdapter<String>(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            mutableListOf()
-        )
-        binding.etCategory.setAdapter(adapter)
-        binding.etCategory.threshold = 1
-
-        binding.etCategory.setOnClickListener {
-            updateCategoryDropdown(binding)
-        }
-    }
-
-    private fun updateCategoryDropdown(binding: AddProductSheetBinding) {
-        val names = viewModel.categoryNames.value
-        if (names.isEmpty()) {
-            "No categories available. Please create one first.".toastError(requireContext())
-            return
-        }
-
-        val adapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            names
-        )
-        binding.etCategory.setAdapter(adapter)
-        binding.etCategory.showDropDown()
+        customDropdownPopup?.dismiss()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        customDropdownPopup?.dismiss()
+        customDropdownPopup = null
         _binding = null
     }
 }

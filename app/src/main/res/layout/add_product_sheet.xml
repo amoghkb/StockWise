@@ -410,8 +410,7 @@
                     android:textSize="14sp"
                     android:fontFamily="@font/inter_bold"
                     android:layout_marginBottom="8dp" />
-
-                <AutoCompleteTextView
+                <androidx.appcompat.widget.AppCompatEditText
                     android:id="@+id/etCategory"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -419,8 +418,14 @@
                     android:padding="14dp"
                     android:background="@drawable/rounded_edittext_bg"
                     android:textSize="16sp"
-                    android:dropDownHeight="wrap_content"
-                    android:completionThreshold="1" />
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:longClickable="false"
+                    android:inputType="none"
+                    android:drawableEnd="@drawable/ic_down_arrow"
+                    android:drawablePadding="12dp" />
             </LinearLayout>
 
             <!-- Item Name -->
