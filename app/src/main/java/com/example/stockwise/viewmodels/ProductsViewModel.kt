@@ -8,6 +8,8 @@ import com.example.stockwise.data.entities.ItemWithCategory
 import com.example.stockwise.data.repository.CategoryRepository
 import com.example.stockwise.data.repository.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,32 +24,38 @@ class ProductsViewModel @Inject constructor(
 
     // ===== STATE =====
 
-    // Categories
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
     val categories: StateFlow<List<Category>> = _categories.asStateFlow()
 
-    // Items
     private val _items = MutableStateFlow<List<ItemWithCategory>>(emptyList())
     val items: StateFlow<List<ItemWithCategory>> = _items.asStateFlow()
 
-    // Loading states
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Error states
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // Success states
     private val _categorySaveSuccess = MutableStateFlow(false)
     val categorySaveSuccess: StateFlow<Boolean> = _categorySaveSuccess.asStateFlow()
 
     private val _itemSaveSuccess = MutableStateFlow(false)
     val itemSaveSuccess: StateFlow<Boolean> = _itemSaveSuccess.asStateFlow()
 
-    // Category dropdown items (just names for display)
     private val _categoryNames = MutableStateFlow<List<String>>(emptyList())
     val categoryNames: StateFlow<List<String>> = _categoryNames.asStateFlow()
+
+    // ===== LIVE COLLECTION JOBS =====
+
+    private var categoriesJob: Job? = null
+    private var itemsJob: Job? = null
+
+    // Guards against loadAllData() being called again (e.g. Fragment view
+    // recreated while this ViewModel survives) when collectors are ALREADY
+    // running — in that case there's nothing to do, so we skip the
+    // cancel+relaunch dance entirely and avoid manufacturing a cancellation
+    // in the first place.
+    private var collectorsStarted = false
 
     // ===== INIT =====
 
@@ -55,79 +63,154 @@ class ProductsViewModel @Inject constructor(
         loadAllData()
     }
 
-    // ===== DATA LOADING =====
+    // ===== DATA LOADING (live + non-blocking + cancellation-safe) =====
 
     fun loadAllData() {
-        viewModelScope.launch {
+        if (collectorsStarted) return
+        collectorsStarted = true
+        observeCategories()
+        observeItems()
+    }
+
+    private fun observeCategories() {
+        categoriesJob?.cancel()
+        categoriesJob = viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Load categories
                 categoryRepository.getAllActiveCategories().collect { categoryList ->
                     _categories.value = categoryList
                     _categoryNames.value = categoryList.map { it.name }
+                    _isLoading.value = false
                 }
-
-                // Load items
-                itemRepository.getAllActiveItemsWithCategory().collect { itemList ->
-                    _items.value = itemList
-                }
+            } catch (e: CancellationException) {
+                // Coroutine was intentionally cancelled (e.g. this job was
+                // restarted via observeCategories() being called again, or
+                // the ViewModel is being cleared). This is NOT an error —
+                // it's cooperative cancellation working as intended, so it
+                // must be rethrown, never surfaced to the user.
+                throw e
             } catch (e: Exception) {
-                _error.value = "Failed to load data: ${e.message}"
-            } finally {
+                _error.value = "Failed to load categories: ${e.message}"
                 _isLoading.value = false
             }
         }
     }
 
-    fun loadCategories() {
-        viewModelScope.launch {
-            try {
-                categoryRepository.getAllActiveCategories().collect { categoryList ->
-                    _categories.value = categoryList
-                    _categoryNames.value = categoryList.map { it.name }
-                }
-            } catch (e: Exception) {
-                _error.value = "Failed to load categories: ${e.message}"
-            }
-        }
-    }
-
-    fun loadItems() {
-        viewModelScope.launch {
+    private fun observeItems() {
+        itemsJob?.cancel()
+        itemsJob = viewModelScope.launch {
             try {
                 itemRepository.getAllActiveItemsWithCategory().collect { itemList ->
                     _items.value = itemList
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to load items: ${e.message}"
             }
         }
     }
 
+    /** Manual refresh hooks (e.g. pull-to-refresh) — force-restart the live collectors. */
+    fun refreshCategories() = observeCategories()
+    fun refreshItems() = observeItems()
+
+    // Kept for source compatibility with any existing callers; now just
+    // delegates to the guarded loader so repeated calls are harmless no-ops
+    // once collectors are already running.
+    fun loadCategories() {
+        if (!collectorsStarted) { loadAllData(); return }
+        observeCategories()
+    }
+
+    fun loadItems() {
+        if (!collectorsStarted) { loadAllData(); return }
+        observeItems()
+    }
+
+    // ===== FILTER BY SINGLE CATEGORY (kept for compatibility, currently
+    // unused by the Fragment — filtering is done locally against the live
+    // lists above) =====
+
+    fun filterByCategory(categoryName: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                if (categoryName == "All Categories") {
+                    itemRepository.getAllActiveItemsWithCategory().collect { itemList ->
+                        _items.value = itemList
+                    }
+                } else {
+                    val category = _categories.value.find { it.name.equals(categoryName, ignoreCase = true) }
+                    if (category != null) {
+                        itemRepository.getActiveItemsByCategory(category.id).collect { itemList ->
+                            _items.value = itemList
+                        }
+                    } else {
+                        _error.value = "Category not found"
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _error.value = "Failed to filter items: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun filterByCategories(categoryNames: List<String>) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                if (categoryNames.isEmpty() || categoryNames.contains("All Categories")) {
+                    itemRepository.getAllActiveItemsWithCategory().collect { itemList ->
+                        _items.value = itemList
+                    }
+                } else {
+                    itemRepository.getAllActiveItemsWithCategory().collect { allItems ->
+                        val filteredItems = allItems.filter { itemWithCategory ->
+                            categoryNames.contains(itemWithCategory.categoryName)
+                        }
+                        _items.value = filteredItems
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _error.value = "Failed to filter items: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     // ===== CATEGORY OPERATIONS =====
+    // No explicit reload calls after mutations — the live Room Flow already
+    // pushes updated data to observeCategories()/observeItems() the instant
+    // the DB changes.
 
     fun saveCategory(name: String, description: String?) {
         viewModelScope.launch {
             _isLoading.value = true
             _categorySaveSuccess.value = false
             try {
-                // Validation
                 if (name.isBlank()) {
                     _error.value = "Category name cannot be empty"
                     return@launch
                 }
 
-                // Check for duplicate category name
                 val existingCategory = _categories.value.find { it.name.equals(name, ignoreCase = true) }
                 if (existingCategory != null) {
                     _error.value = "Category '$name' already exists"
                     return@launch
                 }
 
-                // Use the convenience method in repository
                 categoryRepository.insertCategory(name, description)
                 _categorySaveSuccess.value = true
-                loadCategories() // Refresh categories
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to save category: ${e.message}"
             } finally {
@@ -141,7 +224,8 @@ class ProductsViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 categoryRepository.updateCategory(category)
-                loadCategories()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to update category: ${e.message}"
             } finally {
@@ -154,14 +238,14 @@ class ProductsViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Check if category has items before deleting
                 val itemCount = categoryRepository.getActiveItemCountForCategory(categoryId)
                 if (itemCount > 0) {
                     _error.value = "Cannot delete category with existing items. Move or delete items first."
                     return@launch
                 }
                 categoryRepository.softDeleteCategory(categoryId)
-                loadCategories()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to delete category: ${e.message}"
             } finally {
@@ -193,7 +277,6 @@ class ProductsViewModel @Inject constructor(
             _isLoading.value = true
             _itemSaveSuccess.value = false
             try {
-                // Validate inputs
                 if (name.isBlank()) {
                     _error.value = "Item name cannot be empty"
                     return@launch
@@ -230,7 +313,8 @@ class ProductsViewModel @Inject constructor(
                     imageUri = imageUri
                 )
                 _itemSaveSuccess.value = true
-                loadItems() // Refresh items
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to save item: ${e.message}"
             } finally {
@@ -244,7 +328,8 @@ class ProductsViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 itemRepository.updateItem(item)
-                loadItems()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to update item: ${e.message}"
             } finally {
@@ -258,7 +343,8 @@ class ProductsViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 itemRepository.softDeleteItem(itemId)
-                loadItems()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to delete item: ${e.message}"
             } finally {
@@ -274,6 +360,8 @@ class ProductsViewModel @Inject constructor(
                 itemRepository.searchActiveItems(query).collect { itemList ->
                     _items.value = itemList
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to search items: ${e.message}"
             } finally {
@@ -289,6 +377,8 @@ class ProductsViewModel @Inject constructor(
                 itemRepository.getLowStockItems(threshold).collect { itemList ->
                     _items.value = itemList
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to load low stock items: ${e.message}"
             } finally {
@@ -317,7 +407,7 @@ class ProductsViewModel @Inject constructor(
     }
 
     fun resetSearch() {
-        loadItems()
+        observeItems()
     }
 
     // ===== VALIDATION HELPERS =====
