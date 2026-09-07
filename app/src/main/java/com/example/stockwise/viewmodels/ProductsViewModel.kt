@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.stockwise.data.entities.Category
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategory
+import com.example.stockwise.data.entities.VehicleType
 import com.example.stockwise.data.repository.CategoryRepository
 import com.example.stockwise.data.repository.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import com.example.stockwise.data.repository.VehicleRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ProductsViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val vehicleRepository: VehicleRepository
 ) : ViewModel() {
 
     // ===== STATE =====
@@ -30,6 +33,9 @@ class ProductsViewModel @Inject constructor(
     private val _items = MutableStateFlow<List<ItemWithCategory>>(emptyList())
     val items: StateFlow<List<ItemWithCategory>> = _items.asStateFlow()
 
+
+    private val _vehicleSaveSuccess = MutableStateFlow(false)
+    val vehicleSaveSuccess: StateFlow<Boolean> = _vehicleSaveSuccess.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -374,6 +380,37 @@ class ProductsViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+
+    fun saveVehicle(
+        name: String,
+        company: String? = null,
+        type: VehicleType? = null,
+        model: String? = null,
+        description: String? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                vehicleRepository.insertVehicle(
+                    name = name,
+                    company = company,
+                    type = type,
+                    model = model,
+                    description = description
+                )
+                _vehicleSaveSuccess.value = true
+                loadAllData() // Refresh if needed
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to save vehicle"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun clearVehicleSaveSuccess() {
+        _vehicleSaveSuccess.value = false
     }
 
     fun getLowStockItems(threshold: Int = 5) {

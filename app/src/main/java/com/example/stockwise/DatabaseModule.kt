@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.example.stockwise.AppDatabase
 import com.example.stockwise.data.dao.CategoryDao
 import com.example.stockwise.data.dao.ItemDao
+import com.example.stockwise.data.dao.VehicleDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,5 +39,10 @@ object DatabaseModule {
     @Singleton
     fun provideItemDao(database: AppDatabase): ItemDao {
         return database.itemDao()
+    }
+    @Provides
+    @Singleton
+    fun provideVehicleDao(database: AppDatabase): VehicleDao {
+        return database.vehicleDao()
     }
 }

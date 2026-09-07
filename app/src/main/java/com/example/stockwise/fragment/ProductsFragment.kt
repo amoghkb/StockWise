@@ -30,6 +30,7 @@ import com.example.stockwise.commons.toastError
 import com.example.stockwise.commons.toastSuccess
 import com.example.stockwise.data.entities.Category
 import com.example.stockwise.data.entities.ItemWithCategory
+import com.example.stockwise.data.entities.VehicleType
 import com.example.stockwise.databinding.AddProductSheetBinding
 import com.example.stockwise.databinding.FragmentProductsBinding
 import com.example.stockwise.viewmodels.ProductsViewModel
@@ -111,6 +112,10 @@ class ProductsFragment : Fragment() {
     private var bottomSheetListView: ListView? = null
     private var bottomSheetFilteredCategories = mutableListOf<String>()
 
+    // Vehicle type dropdown popup
+    private var vehicleTypePopup: PopupWindow? = null
+    private var selectedVehicleType: VehicleType? = null
+
     // ==============================
     // 5. LIFECYCLE METHODS
     // ==============================
@@ -136,6 +141,8 @@ class ProductsFragment : Fragment() {
         super.onDestroyView()
         bottomSheetDropdownPopup?.dismiss()
         bottomSheetDropdownPopup = null
+        vehicleTypePopup?.dismiss()
+        vehicleTypePopup = null
         _binding = null
     }
 
@@ -173,6 +180,15 @@ class ProductsFragment : Fragment() {
                 if (success) {
                     "Item saved successfully!".toastSuccess(requireContext())
                     viewModel.clearSaveSuccess()
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.vehicleSaveSuccess.collect { success ->
+                if (success) {
+                    "Vehicle saved successfully!".toastSuccess(requireContext())
+                    viewModel.clearVehicleSaveSuccess()
                 }
             }
         }
@@ -227,13 +243,11 @@ class ProductsFragment : Fragment() {
 
     private fun openCamera() {
         try {
-            // Check if camera is available
             if (!requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
                 "No camera available on this device".toastError(requireContext())
                 return
             }
 
-            // Check if camera permission is granted
             if (ContextCompat.checkSelfPermission(
                     requireContext(),
                     android.Manifest.permission.CAMERA
@@ -243,7 +257,6 @@ class ProductsFragment : Fragment() {
                 return
             }
 
-            // For Android 10+ use MediaStore
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val contentValues = android.content.ContentValues().apply {
                     put(MediaStore.Images.Media.DISPLAY_NAME, "IMG_${System.currentTimeMillis()}.jpg")
@@ -272,7 +285,6 @@ class ProductsFragment : Fragment() {
                     "Failed to create image file".toastError(requireContext())
                 }
             } else {
-                // For older Android versions, use FileProvider
                 val photoFile = createImageFile()
                 if (photoFile == null) {
                     "Failed to create image file".toastError(requireContext())
@@ -380,7 +392,6 @@ class ProductsFragment : Fragment() {
     private fun checkPermissionAndOpenPicker() {
         val permissions = mutableListOf<String>()
 
-        // Camera permission
         if (ContextCompat.checkSelfPermission(
                 requireContext(),
                 android.Manifest.permission.CAMERA
@@ -389,7 +400,6 @@ class ProductsFragment : Fragment() {
             permissions.add(android.Manifest.permission.CAMERA)
         }
 
-        // Storage permissions based on Android version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(
                     requireContext(),
@@ -581,13 +591,11 @@ class ProductsFragment : Fragment() {
         val qtyText = itemView.findViewById<TextView>(R.id.tvItemQty)
         val itemImage = itemView.findViewById<ImageView>(R.id.ivItemImage)
 
-        // Apply styles programmatically
         nameText.setTextAppearance(com.example.stockwise.R.style.BodyText)
         skuText.setTextAppearance(com.example.stockwise.R.style.BodyText)
         priceText.setTextAppearance(com.example.stockwise.R.style.BodyText)
         qtyText.setTextAppearance(com.example.stockwise.R.style.BodyText)
 
-        // Set price text color to blue
         priceText.setTextColor(ContextCompat.getColor(requireContext(), R.color.stock_wise_primary))
 
         nameText.text = item.name
@@ -595,16 +603,13 @@ class ProductsFragment : Fragment() {
         priceText.text = "\u20B9${String.format("%.2f", item.sellingPrice)}"
         qtyText.text = "Qty: ${item.stock}"
 
-        // Set image size
         val layoutParams = itemImage.layoutParams
         layoutParams.width = dp(48)
         layoutParams.height = dp(48)
         itemImage.layoutParams = layoutParams
 
-        // Use CENTER_CROP to fill the entire image view
         itemImage.scaleType = ImageView.ScaleType.CENTER_CROP
 
-        // Load image using Glide with rounded corners
         val imagePath = item.imageUri
         if (!imagePath.isNullOrEmpty()) {
             try {
@@ -615,7 +620,7 @@ class ProductsFragment : Fragment() {
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                         .placeholder(R.drawable.ic_image)
                         .error(R.drawable.ic_image)
-                        .transform(RoundedCorners(dp(8)))  // KEEP THIS - it gives rounded corners on square image
+                        .transform(RoundedCorners(dp(8)))
                         .centerCrop()
                         .override(dp(48), dp(48))
                         .into(itemImage)
@@ -629,24 +634,22 @@ class ProductsFragment : Fragment() {
             itemImage.setImageResource(R.drawable.ic_image)
         }
 
-
-        // ADD CLICK LISTENER FOR ITEM NAVIGATION
         itemView.setOnClickListener {
             navigateToItemDetail(itemWithCategory)
         }
 
-        // Add ripple effect for better UX
         itemView.isClickable = true
         itemView.isFocusable = true
         itemView.background = ContextCompat.getDrawable(requireContext(), R.drawable.ripple_effect)
 
         return itemView
     }
-    // NAVIGATION TO ITEM DETAIL - UI UNCHANGED
+
+    // ==============================
+    // NAVIGATION TO ITEM DETAIL
     // ==============================
 
     private fun navigateToItemDetail(itemWithCategory: ItemWithCategory) {
-        // Create bundle with all item data
         val bundle = Bundle().apply {
             putString("item_id", itemWithCategory.item.id)
             putString("item_name", itemWithCategory.item.name)
@@ -662,14 +665,11 @@ class ProductsFragment : Fragment() {
             putString("image_uri", itemWithCategory.item.imageUri)
         }
 
-        // Create the fragment and set arguments
         val fragment = ItemDetailFragment()
         fragment.arguments = bundle
 
-        // Get the container ID from the activity's layout
         val containerId = android.R.id.content
 
-        // Perform the fragment transaction
         parentFragmentManager.beginTransaction()
             .replace(containerId, fragment)
             .addToBackStack("ItemDetailFragment")
@@ -682,6 +682,7 @@ class ProductsFragment : Fragment() {
 
     private fun openAddProductSheet() {
         selectedImageUri = null
+        selectedVehicleType = null
         val sheet = ReusableBottomSheet.newInstance(
             layoutRes = R.layout.add_product_sheet
         )
@@ -691,6 +692,7 @@ class ProductsFragment : Fragment() {
             currentSheetBinding = sheetBinding
 
             setupBottomSheetCategoryDropdown(sheetBinding)
+            setupVehicleTypeDropdown(sheetBinding)
             showMenu(sheetBinding)
             preventAutoFocus(sheetBinding)
             setupSheetClickListeners(sheetBinding, sheet)
@@ -708,6 +710,10 @@ class ProductsFragment : Fragment() {
             showCategoryForm(binding)
         }
 
+        binding.btnAddVehicle.setOnClickListener {
+            showVehicleForm(binding)
+        }
+
         binding.btnAddItem.setOnClickListener {
             showItemForm(binding)
         }
@@ -721,12 +727,25 @@ class ProductsFragment : Fragment() {
             clearCategoryForm(binding)
         }
 
+        binding.btnBackToMenuFromVehicle.setOnClickListener {
+            showMenu(binding)
+            clearVehicleForm(binding)
+        }
+
         binding.btnCategoryCancel.setOnClickListener {
             dismissSheet(binding, sheet)
         }
 
         binding.btnSaveCategory.setOnClickListener {
             saveCategory(binding, sheet)
+        }
+
+        binding.btnVehicleCancel.setOnClickListener {
+            dismissSheet(binding, sheet)
+        }
+
+        binding.btnSaveVehicle.setOnClickListener {
+            saveVehicle(binding, sheet)
         }
 
         binding.btnBackToMenuFromItem.setOnClickListener {
@@ -758,6 +777,7 @@ class ProductsFragment : Fragment() {
 
     private fun dismissSheet(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         bottomSheetDropdownPopup?.dismiss()
+        vehicleTypePopup?.dismiss()
         currentSheetBinding = null
         sheet.dismiss()
     }
@@ -768,22 +788,39 @@ class ProductsFragment : Fragment() {
 
     private fun showMenu(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
+        vehicleTypePopup?.dismiss()
         binding.menuContainer.visibility = View.VISIBLE
         binding.categoryFormContainer.visibility = View.GONE
+        binding.vehicleFormContainer.visibility = View.GONE
         binding.itemFormContainer.visibility = View.GONE
     }
 
     private fun showCategoryForm(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
+        vehicleTypePopup?.dismiss()
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.VISIBLE
+        binding.vehicleFormContainer.visibility = View.GONE
         binding.itemFormContainer.visibility = View.GONE
+    }
+
+    private fun showVehicleForm(binding: AddProductSheetBinding) {
+        bottomSheetDropdownPopup?.dismiss()
+        vehicleTypePopup?.dismiss()
+        binding.menuContainer.visibility = View.GONE
+        binding.categoryFormContainer.visibility = View.GONE
+        binding.vehicleFormContainer.visibility = View.VISIBLE
+        binding.itemFormContainer.visibility = View.GONE
+
+        clearVehicleFormFocus(binding)
     }
 
     private fun showItemForm(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
+        vehicleTypePopup?.dismiss()
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.GONE
+        binding.vehicleFormContainer.visibility = View.GONE
         binding.itemFormContainer.visibility = View.VISIBLE
 
         clearAllFieldsFocus(binding)
@@ -803,6 +840,18 @@ class ProductsFragment : Fragment() {
         binding.etCategory.clearFocus()
     }
 
+    private fun clearVehicleFormFocus(binding: AddProductSheetBinding) {
+        binding.etVehicleName.clearFocus()
+        binding.etVehicleCompany.clearFocus()
+        binding.etVehicleType.clearFocus()
+        binding.etVehicleModel.clearFocus()
+        binding.etVehicleDescription.clearFocus()
+
+        binding.etVehicleType.isFocusable = false
+        binding.etVehicleType.isFocusableInTouchMode = false
+        binding.etVehicleType.clearFocus()
+    }
+
     private fun hideKeyboard(binding: AddProductSheetBinding) {
         val inputMethodManager = requireContext().getSystemService(android.app.Activity.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
         inputMethodManager.hideSoftInputFromWindow(binding.root.windowToken, 0)
@@ -815,6 +864,16 @@ class ProductsFragment : Fragment() {
     private fun clearCategoryForm(binding: AddProductSheetBinding) {
         binding.etCategoryName.text?.clear()
         binding.etCategoryDescription.text?.clear()
+    }
+
+    private fun clearVehicleForm(binding: AddProductSheetBinding) {
+        binding.etVehicleName.text?.clear()
+        binding.etVehicleCompany.text?.clear()
+        binding.etVehicleType.text?.clear()
+        binding.etVehicleModel.text?.clear()
+        binding.etVehicleDescription.text?.clear()
+        selectedVehicleType = null
+        vehicleTypePopup?.dismiss()
     }
 
     private fun clearItemForm(binding: AddProductSheetBinding) {
@@ -859,6 +918,45 @@ class ProductsFragment : Fragment() {
         sheet.dismiss()
     }
 
+    private fun saveVehicle(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
+        val name = binding.etVehicleName.text.toString().trim()
+        val company = binding.etVehicleCompany.text.toString().trim().takeIf { it.isNotEmpty() }
+        val type = selectedVehicleType
+        val model = binding.etVehicleModel.text.toString().trim().takeIf { it.isNotEmpty() }
+        val description = binding.etVehicleDescription.text.toString().trim().takeIf { it.isNotEmpty() }
+
+        when {
+            name.isEmpty() -> {
+                "Please enter a vehicle name".toastError(requireContext())
+                return
+            }
+            name.length < 2 -> {
+                "Vehicle name must be at least 2 characters".toastError(requireContext())
+                return
+            }
+            name.length > 100 -> {
+                "Vehicle name must be less than 100 characters".toastError(requireContext())
+                return
+            }
+            type == null -> {
+                "Please select a vehicle type".toastError(requireContext())
+                return
+            }
+        }
+
+        viewModel.saveVehicle(
+            name = name,
+            company = company,
+            type = type,
+            model = model,
+            description = description
+        )
+
+        clearVehicleForm(binding)
+        vehicleTypePopup?.dismiss()
+        sheet.dismiss()
+    }
+
     private fun saveItem(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         val categoryName = binding.etCategory.text.toString().trim()
         val name = binding.etItemName.text.toString().trim()
@@ -875,7 +973,6 @@ class ProductsFragment : Fragment() {
             return
         }
 
-        // Save image if selected - THIS SAVES TO DB
         var savedImagePath: String? = null
         selectedImageUri?.let { uri ->
             savedImagePath = saveImageToInternalStorage(uri)
@@ -885,7 +982,6 @@ class ProductsFragment : Fragment() {
             }
         }
 
-        // Save item with image path to database
         viewModel.saveItem(
             categoryId = category.id,
             name = name,
@@ -1073,5 +1169,97 @@ class ProductsFragment : Fragment() {
         adapter.clear()
         adapter.addAll(bottomSheetFilteredCategories)
         adapter.notifyDataSetChanged()
+    }
+
+    // ==============================
+    // 15. VEHICLE TYPE DROPDOWN
+    // ==============================
+
+    private fun setupVehicleTypeDropdown(binding: AddProductSheetBinding) {
+        binding.etVehicleType.apply {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            isClickable = true
+            isCursorVisible = false
+            inputType = android.text.InputType.TYPE_NULL
+            clearFocus()
+
+            setOnClickListener {
+                showVehicleTypeDropdown(binding)
+            }
+        }
+    }
+
+    private fun showVehicleTypeDropdown(binding: AddProductSheetBinding) {
+        vehicleTypePopup?.dismiss()
+
+        val vehicleTypes = VehicleType.values()
+        val typeNames = vehicleTypes.map { it.displayName }
+
+        val popupView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dropdown_category_search, null)
+
+        val searchEditText = popupView.findViewById<EditText>(R.id.etSearchCategory)
+        val listView = popupView.findViewById<ListView>(R.id.lvCategories)
+
+        // Hide search for vehicle types as it's a fixed list
+        searchEditText.visibility = View.GONE
+
+        val adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_list_item_1,
+            typeNames
+        )
+        listView.adapter = adapter
+
+        listView.setOnItemClickListener { _, _, position, _ ->
+            val selectedType = vehicleTypes[position]
+            selectedVehicleType = selectedType
+            binding.etVehicleType.setText(selectedType.displayName)
+            vehicleTypePopup?.dismiss()
+        }
+
+        binding.etVehicleType.post {
+            val screenHeight = resources.displayMetrics.heightPixels
+            val screenWidth = resources.displayMetrics.widthPixels
+
+            val location = IntArray(2)
+            try {
+                binding.etVehicleType.getLocationOnScreen(location)
+            } catch (e: Exception) {
+                location[0] = 0
+                location[1] = 0
+            }
+
+            val editTextBottom = location[1] + binding.etVehicleType.height
+            val spaceBelow = screenHeight - editTextBottom - dp(20)
+
+            val maxAvailableHeight = (spaceBelow * 0.95).toInt()
+            val maxScreenHeight = (screenHeight * 0.6).toInt()
+            val finalHeight = minOf(maxAvailableHeight, maxScreenHeight).coerceAtLeast(dp(200))
+
+            val popupWidth = (screenWidth * 0.9).toInt()
+
+            vehicleTypePopup = PopupWindow(
+                popupView,
+                popupWidth,
+                finalHeight,
+                true
+            ).apply {
+                isFocusable = true
+                isOutsideTouchable = true
+                setBackgroundDrawable(
+                    ContextCompat.getDrawable(requireContext(), R.drawable.rounded_dropdown_bg)
+                )
+                elevation = dp(8).toFloat()
+
+                val offsetX = (binding.etVehicleType.width - popupWidth) / 2
+                showAsDropDown(binding.etVehicleType, offsetX, dp(8))
+
+                setOnDismissListener {
+                    vehicleTypePopup = null
+                }
+            }
+        }
     }
 }

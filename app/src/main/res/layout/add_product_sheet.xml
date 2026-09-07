@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:visibility="visible">
 
             <!-- "Create New" Title -->
             <TextView
@@ -94,7 +94,6 @@
                     android:src="@drawable/ic_chevron_right"
                     android:tint="#999999" />
             </LinearLayout>
-
             <!-- Add New Item -->
             <LinearLayout
                 android:id="@+id/btnAddItem"
@@ -106,7 +105,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:background="@drawable/rounded_design_bg"
-                android:layout_marginBottom="20dp"
+                android:layout_marginBottom="12dp"
                 android:gravity="center_vertical">
 
                 <FrameLayout
@@ -156,6 +155,68 @@
                     android:src="@drawable/ic_chevron_right"
                     android:tint="#999999" />
             </LinearLayout>
+
+            <!-- Add New Vehicle -->
+            <LinearLayout
+                android:id="@+id/btnAddVehicle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="18dp"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="@drawable/rounded_design_bg"
+                android:layout_marginBottom="20dp"
+                android:gravity="center_vertical">
+
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="56dp"
+                    android:background="@drawable/rounded_design_icon_bg">
+
+                    <ImageView
+                        android:id="@+id/ivVehicleIcon"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_vehicle" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:id="@+id/tvVehicleTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Add New Vehicle"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/inter_bold"
+                        android:textColor="#000000"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/tvVehicleSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Add a vehicle to your inventory"
+                        android:textSize="14sp"
+                        android:fontFamily="@font/inter_medium"
+                        android:textColor="#666666" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/ivVehicleChevron"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="#999999" />
+            </LinearLayout>
             <!-- Cancel Button -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnCancel"
@@ -178,7 +239,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="visible">
+            android:visibility="gone">
 
             <!-- Header -->
             <LinearLayout
@@ -294,6 +355,225 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Save Category"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:padding="14dp"
+                    android:fontFamily="@font/inter_regular"
+                    android:background="@drawable/rounded_save_bg"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ========== VEHICLE FORM ========== -->
+        <LinearLayout
+            android:id="@+id/vehicleFormContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="20dp">
+
+                <ImageView
+                    android:id="@+id/btnBackToMenuFromVehicle"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:src="@drawable/ic_back_button"
+                    android:padding="4dp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/tvNewVehicle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="New Vehicle"
+                    android:textSize="18sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginStart="12dp" />
+            </LinearLayout>
+
+            <!-- Vehicle Name -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleNameLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vehicle Name"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g., Pulsar, Swift, Fortuner"
+                    android:inputType="text"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Company -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleCompanyLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Company (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleCompany"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g., Bajaj, Maruti Suzuki, Toyota"
+                    android:inputType="text"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Vehicle Type Dropdown -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleTypeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vehicle Type"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.appcompat.widget.AppCompatEditText
+                    android:id="@+id/etVehicleType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Select Vehicle Type"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:longClickable="false"
+                    android:inputType="none"
+                    android:drawableEnd="@drawable/ic_down_arrow"
+                    android:drawablePadding="12dp" />
+            </LinearLayout>
+
+            <!-- Model -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleModelLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Model (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleModel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g., NS 200, VXI, 4x4"
+                    android:inputType="text"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Description -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleDescLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Description (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Additional details about the vehicle"
+                    android:inputType="text|textMultiLine"
+                    android:gravity="top|start"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp"
+                    android:minLines="3"
+                    android:maxLines="6" />
+            </LinearLayout>
+
+            <!-- Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="8dp">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnVehicleCancel"
+                    style="@style/Widget.AppCompat.Button.Borderless"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Cancel"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:padding="14dp"
+                    android:fontFamily="@font/inter_regular"
+                    android:background="@drawable/rounded_design_button"
+                    android:layout_marginEnd="8dp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnSaveVehicle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Save Vehicle"
                     android:textColor="@android:color/white"
                     android:textSize="14sp"
                     android:padding="14dp"

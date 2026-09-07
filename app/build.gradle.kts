@@ -76,7 +76,7 @@ dependencies {
 
     // For ViewModel with Hilt
     implementation("androidx.hilt:hilt-navigation-fragment:1.0.0")
-
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
