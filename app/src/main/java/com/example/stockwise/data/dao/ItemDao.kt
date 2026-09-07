@@ -4,9 +4,13 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
+import com.example.stockwise.data.entities.Vehicle
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategory
+import com.example.stockwise.data.entities.ItemVehicleRelation
+import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -90,4 +94,133 @@ interface ItemDao {
 
     @Query("SELECT * FROM items WHERE id = :itemId AND isDeleted = 0")
     suspend fun getItemById(itemId: String): Item?
+
+    // ==================== NEW VEHICLE RELATIONSHIP METHODS ====================
+
+    // Get items with their vehicles (with category name too)
+    @Transaction
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        WHERE items.isDeleted = 0 
+        ORDER BY items.name ASC
+    """)
+    fun getAllActiveItemsWithVehicles(): Flow<List<ItemWithCategoryAndVehicles>>
+
+    @Transaction
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        WHERE items.id = :itemId AND items.isDeleted = 0
+    """)
+    suspend fun getActiveItemWithVehiclesById(itemId: String): ItemWithCategoryAndVehicles?
+
+    // Get items by category with their vehicles
+    @Transaction
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        WHERE items.categoryId = :categoryId AND items.isDeleted = 0
+    """)
+    fun getActiveItemsByCategoryWithVehicles(categoryId: String): Flow<List<ItemWithCategoryAndVehicles>>
+
+    // Search items with their vehicles
+    @Transaction
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        WHERE items.isDeleted = 0 
+        AND (items.name LIKE '%' || :query || '%' 
+        OR items.description LIKE '%' || :query || '%'
+        OR categories.name LIKE '%' || :query || '%')
+        ORDER BY items.name ASC
+    """)
+    fun searchActiveItemsWithVehicles(query: String): Flow<List<ItemWithCategoryAndVehicles>>
+
+    // Low stock items with vehicles
+    @Transaction
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        WHERE items.isDeleted = 0 AND items.stock <= :threshold
+        ORDER BY items.stock ASC
+    """)
+    fun getLowStockItemsWithVehicles(threshold: Int = 5): Flow<List<ItemWithCategoryAndVehicles>>
+
+    // Get deleted items with their vehicles
+    @Transaction
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        WHERE items.isDeleted = 1 
+        ORDER BY items.deletedAt DESC
+    """)
+    fun getDeletedItemsWithVehicles(): Flow<List<ItemWithCategoryAndVehicles>>
+
+    // Vehicle relationship management
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItemVehicleRelation(relation: ItemVehicleRelation)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItemVehicleRelations(relations: List<ItemVehicleRelation>)
+
+    @Query("DELETE FROM item_vehicle_relations WHERE itemId = :itemId")
+    suspend fun deleteAllVehicleRelationsForItem(itemId: String)
+
+    @Query("DELETE FROM item_vehicle_relations WHERE itemId = :itemId AND vehicleId = :vehicleId")
+    suspend fun deleteVehicleRelation(itemId: String, vehicleId: String)
+
+    @Query("SELECT * FROM item_vehicle_relations WHERE itemId = :itemId")
+    suspend fun getVehicleRelationsForItem(itemId: String): List<ItemVehicleRelation>
+
+    @Query("""
+        SELECT v.* FROM item_vehicle_relations ivr
+        INNER JOIN vehicles v ON ivr.vehicleId = v.id
+        WHERE ivr.itemId = :itemId AND v.isDeleted = 0
+    """)
+    suspend fun getActiveVehiclesForItem(itemId: String): List<Vehicle>
+
+    @Query("""
+        SELECT COUNT(*) FROM item_vehicle_relations ivr
+        INNER JOIN vehicles v ON ivr.vehicleId = v.id
+        WHERE ivr.itemId = :itemId AND v.isDeleted = 0
+    """)
+    suspend fun getVehicleCountForItem(itemId: String): Int
+
+    // Check if a vehicle is assigned to an item
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM item_vehicle_relations 
+            WHERE itemId = :itemId AND vehicleId = :vehicleId
+        )
+    """)
+    suspend fun isVehicleAssignedToItem(itemId: String, vehicleId: String): Boolean
+
+    // Get all items assigned to a specific vehicle
+    @Query("""
+        SELECT items.*, categories.name as categoryName 
+        FROM items 
+        INNER JOIN categories ON items.categoryId = categories.id 
+        INNER JOIN item_vehicle_relations ivr ON items.id = ivr.itemId
+        WHERE ivr.vehicleId = :vehicleId AND items.isDeleted = 0
+    """)
+    fun getItemsByVehicleWithCategory(vehicleId: String): Flow<List<ItemWithCategory>>
+
+    // Batch operations
+    @Transaction
+    suspend fun updateItemVehicles(itemId: String, vehicleIds: List<String>) {
+        deleteAllVehicleRelationsForItem(itemId)
+        if (vehicleIds.isNotEmpty()) {
+            val relations = vehicleIds.map { vehicleId ->
+                ItemVehicleRelation(itemId = itemId, vehicleId = vehicleId)
+            }
+            insertItemVehicleRelations(relations)
+        }
+    }
 }

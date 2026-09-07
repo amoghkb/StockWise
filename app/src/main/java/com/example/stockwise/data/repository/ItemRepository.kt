@@ -6,10 +6,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import com.example.stockwise.data.dao.ItemDao
+import com.example.stockwise.data.dao.VehicleDao
 import com.example.stockwise.data.entities.Item
+import com.example.stockwise.data.entities.ItemVehicleRelation
 import com.example.stockwise.data.entities.ItemWithCategory
+import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
+import com.example.stockwise.data.entities.Vehicle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -21,7 +26,9 @@ import javax.inject.Singleton
 
 @Singleton
 class ItemRepository @Inject constructor(
-    private val itemDao: ItemDao
+    private val itemDao: ItemDao,
+    private val vehicleDao: VehicleDao
+
 ) {
 
     suspend fun insertItem(item: Item): String {
@@ -254,4 +261,78 @@ class ItemRepository @Inject constructor(
             }
         }
     }
+
+    // ==============================
+// VEHICLE RELATIONSHIP METHODS
+// ==============================
+
+    fun getAllActiveItemsWithVehicles(): Flow<List<ItemWithCategoryAndVehicles>> {
+        return itemDao.getAllActiveItemsWithVehicles()
+    }
+
+    suspend fun getActiveItemWithVehiclesById(itemId: String): ItemWithCategoryAndVehicles? {
+        return itemDao.getActiveItemWithVehiclesById(itemId)
+    }
+
+    fun getActiveItemsByCategoryWithVehicles(categoryId: String): Flow<List<ItemWithCategoryAndVehicles>> {
+        return itemDao.getActiveItemsByCategoryWithVehicles(categoryId)
+    }
+
+    fun searchActiveItemsWithVehicles(query: String): Flow<List<ItemWithCategoryAndVehicles>> {
+        return if (query.isBlank()) {
+            itemDao.getAllActiveItemsWithVehicles()
+        } else {
+            itemDao.searchActiveItemsWithVehicles(query)
+        }
+    }
+
+    fun getLowStockItemsWithVehicles(threshold: Int = 5): Flow<List<ItemWithCategoryAndVehicles>> {
+        return itemDao.getLowStockItemsWithVehicles(threshold)
+    }
+
+    fun getDeletedItemsWithVehicles(): Flow<List<ItemWithCategoryAndVehicles>> {
+        return itemDao.getDeletedItemsWithVehicles()
+    }
+
+    suspend fun assignVehiclesToItem(itemId: String, vehicleIds: List<String>) {
+        itemDao.updateItemVehicles(itemId, vehicleIds)
+    }
+
+    suspend fun addVehicleToItem(itemId: String, vehicleId: String) {
+        val relation = ItemVehicleRelation(
+            itemId = itemId,
+            vehicleId = vehicleId,
+            assignedAt = Date()
+        )
+        itemDao.insertItemVehicleRelation(relation)
+    }
+
+    suspend fun removeVehicleFromItem(itemId: String, vehicleId: String) {
+        itemDao.deleteVehicleRelation(itemId, vehicleId)
+    }
+
+    suspend fun removeAllVehiclesFromItem(itemId: String) {
+        itemDao.deleteAllVehicleRelationsForItem(itemId)
+    }
+
+    suspend fun getAssignedVehicleIdsForItem(itemId: String): List<String> {
+        return itemDao.getVehicleRelationsForItem(itemId).map { it.vehicleId }
+    }
+
+    suspend fun getActiveVehiclesForItem(itemId: String): List<Vehicle> {
+        return itemDao.getActiveVehiclesForItem(itemId)
+    }
+
+    suspend fun getVehicleCountForItem(itemId: String): Int {
+        return itemDao.getVehicleCountForItem(itemId)
+    }
+
+    suspend fun isVehicleAssignedToItem(itemId: String, vehicleId: String): Boolean {
+        return itemDao.isVehicleAssignedToItem(itemId, vehicleId)
+    }
+
+    fun getItemsByVehicleWithCategory(vehicleId: String): Flow<List<ItemWithCategory>> {
+        return itemDao.getItemsByVehicleWithCategory(vehicleId)
+    }
+
 }

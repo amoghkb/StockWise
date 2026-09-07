@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@drawable/chip_background"
+    android:paddingHorizontal="10dp"
+    android:paddingVertical="6dp"
+    android:layout_marginEnd="6dp"
+    android:layout_marginBottom="4dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/tvChipName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:fontFamily="@font/inter_medium"
+        android:textColor="#333333" />
+
+    <ImageView
+        android:id="@+id/ivRemoveVehicle"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:src="@drawable/ic_cross"
+        android:layout_marginStart="6dp"
+        android:tint="#666666"
+        android:clickable="true"
+        android:focusable="true" />
+</LinearLayout>

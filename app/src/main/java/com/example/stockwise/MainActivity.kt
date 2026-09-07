@@ -3,10 +3,10 @@ package com.example.stockwise
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import com.example.stockwise.fragment.BeltsFragment
-import com.example.stockwise.fragment.CalendarFragment
-import com.example.stockwise.fragment.DashboardFragment
-import com.example.stockwise.fragment.ProductsFragment
+import com.example.stockwise.ui.fragment.BeltsFragment
+import com.example.stockwise.ui.fragment.CalendarFragment
+import com.example.stockwise.ui.fragment.DashboardFragment
+import com.example.stockwise.ui.fragment.ProductsFragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
 

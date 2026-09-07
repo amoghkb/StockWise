@@ -1,4 +1,4 @@
-package com.example.stockwise.fragment
+package com.example.stockwise.ui.fragment
 
 import android.app.Activity
 import android.content.Intent
@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -30,9 +31,11 @@ import com.example.stockwise.commons.toastError
 import com.example.stockwise.commons.toastSuccess
 import com.example.stockwise.data.entities.Category
 import com.example.stockwise.data.entities.ItemWithCategory
+import com.example.stockwise.data.entities.Vehicle
 import com.example.stockwise.data.entities.VehicleType
 import com.example.stockwise.databinding.AddProductSheetBinding
 import com.example.stockwise.databinding.FragmentProductsBinding
+import com.example.stockwise.ui.adapter.VehicleMultiSelectAdapter
 import com.example.stockwise.viewmodels.ProductsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -43,23 +46,14 @@ import java.io.InputStream
 @AndroidEntryPoint
 class ProductsFragment : Fragment() {
 
-    // ==============================
-    // 1. BINDING & VIEWMODEL
-    // ==============================
-
     private var _binding: FragmentProductsBinding? = null
     private val binding get() = _binding!!
 
     private lateinit var viewModel: ProductsViewModel
 
-    // ==============================
-    // 2. IMAGE SELECTION
-    // ==============================
-
     private var selectedImageUri: Uri? = null
     private var currentSheetBinding: AddProductSheetBinding? = null
 
-    // Image picker launcher for gallery
     private val imagePickerLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -71,7 +65,6 @@ class ProductsFragment : Fragment() {
             }
         }
 
-    // Camera launcher
     private val cameraLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -82,7 +75,6 @@ class ProductsFragment : Fragment() {
             }
         }
 
-    // Permission launcher
     private val permissionLauncher: ActivityResultLauncher<Array<String>> =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val allGranted = permissions.values.all { it }
@@ -94,31 +86,23 @@ class ProductsFragment : Fragment() {
             }
         }
 
-    // ==============================
-    // 3. SEARCH STATE
-    // ==============================
-
     private var currentQuery: String = ""
-
     private val expandedCategories = mutableSetOf<String>()
     private var hasInitializedDefaultExpansion = false
-
-    // ==============================
-    // 4. BOTTOM SHEET DROPDOWN COMPONENTS
-    // ==============================
 
     private var bottomSheetDropdownPopup: PopupWindow? = null
     private var bottomSheetSearchEditText: EditText? = null
     private var bottomSheetListView: ListView? = null
     private var bottomSheetFilteredCategories = mutableListOf<String>()
 
-    // Vehicle type dropdown popup
     private var vehicleTypePopup: PopupWindow? = null
     private var selectedVehicleType: VehicleType? = null
 
-    // ==============================
-    // 5. LIFECYCLE METHODS
-    // ==============================
+    private var vehicleDropdownPopup: PopupWindow? = null
+    private var allVehicles = mutableListOf<Vehicle>()
+    private var filteredVehicles = mutableListOf<Vehicle>()
+    private var selectedVehicles = mutableListOf<Vehicle>()
+    private var vehicleAdapter: VehicleMultiSelectAdapter? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -143,27 +127,20 @@ class ProductsFragment : Fragment() {
         bottomSheetDropdownPopup = null
         vehicleTypePopup?.dismiss()
         vehicleTypePopup = null
+        vehicleDropdownPopup?.dismiss()
+        vehicleDropdownPopup = null
         _binding = null
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
-
-    // ==============================
-    // 6. VIEW MODEL OBSERVERS
-    // ==============================
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.items.collect {
-                renderProducts()
-            }
+            viewModel.items.collect { renderProducts() }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.categories.collect {
-                renderProducts()
-            }
+            viewModel.categories.collect { renderProducts() }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -189,6 +166,7 @@ class ProductsFragment : Fragment() {
                 if (success) {
                     "Vehicle saved successfully!".toastSuccess(requireContext())
                     viewModel.clearVehicleSaveSuccess()
+                    loadVehiclesForDropdown()
                 }
             }
         }
@@ -209,10 +187,6 @@ class ProductsFragment : Fragment() {
         }
     }
 
-    // ==============================
-    // 7. UI SETUP
-    // ==============================
-
     private fun setupClickListeners() {
         binding.fabAddProduct.setOnClickListener {
             openAddProductSheet()
@@ -225,7 +199,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 8. IMAGE PICKER FUNCTIONS
+    // IMAGE PICKER FUNCTIONS
     // ==============================
 
     private fun openImagePicker() {
@@ -426,7 +400,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 9. RENDER
+    // RENDER PRODUCTS
     // ==============================
 
     private fun renderProducts() {
@@ -449,10 +423,6 @@ class ProductsFragment : Fragment() {
             }
             categoryContainer.addView(emptyView)
             return
-        }
-
-        if (!hasInitializedDefaultExpansion) {
-            hasInitializedDefaultExpansion = true
         }
 
         var anyCardShown = false
@@ -575,10 +545,6 @@ class ProductsFragment : Fragment() {
         )
     }
 
-    // ==============================
-    // createItemView WITH GLIDE (UI UNCHANGED)
-    // ==============================
-
     private fun createItemView(itemWithCategory: ItemWithCategory): View {
         val inflater = LayoutInflater.from(requireContext())
         val itemView = inflater.inflate(R.layout.category_item_layout, null)
@@ -645,10 +611,6 @@ class ProductsFragment : Fragment() {
         return itemView
     }
 
-    // ==============================
-    // NAVIGATION TO ITEM DETAIL
-    // ==============================
-
     private fun navigateToItemDetail(itemWithCategory: ItemWithCategory) {
         val bundle = Bundle().apply {
             putString("item_id", itemWithCategory.item.id)
@@ -677,12 +639,13 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 10. BOTTOM SHEET - OPEN & BIND
+    // BOTTOM SHEET
     // ==============================
 
     private fun openAddProductSheet() {
         selectedImageUri = null
         selectedVehicleType = null
+        selectedVehicles.clear()
         val sheet = ReusableBottomSheet.newInstance(
             layoutRes = R.layout.add_product_sheet
         )
@@ -693,34 +656,40 @@ class ProductsFragment : Fragment() {
 
             setupBottomSheetCategoryDropdown(sheetBinding)
             setupVehicleTypeDropdown(sheetBinding)
+            setupVehicleMultiSelectDropdown(sheetBinding)
             showMenu(sheetBinding)
             preventAutoFocus(sheetBinding)
             setupSheetClickListeners(sheetBinding, sheet)
 
-            // Reset image preview
             sheetBinding.ivItemImage.setImageResource(R.drawable.ic_image)
             sheetBinding.tvTapToSelect.text = "Tap to select image"
+
+            loadVehiclesForDropdown()
         }
 
         sheet.show(parentFragmentManager, "AddProductSheet")
     }
 
+    private fun loadVehiclesForDropdown() {
+        lifecycleScope.launch {
+            try {
+                allVehicles.clear()
+                val vehicles = viewModel.getAllVehicles()
+                allVehicles.addAll(vehicles)
+                filteredVehicles.clear()
+                filteredVehicles.addAll(allVehicles)
+                updateVehicleChips()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private fun setupSheetClickListeners(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
-        binding.btnAddCategory.setOnClickListener {
-            showCategoryForm(binding)
-        }
-
-        binding.btnAddVehicle.setOnClickListener {
-            showVehicleForm(binding)
-        }
-
-        binding.btnAddItem.setOnClickListener {
-            showItemForm(binding)
-        }
-
-        binding.btnCancel.setOnClickListener {
-            dismissSheet(binding, sheet)
-        }
+        binding.btnAddCategory.setOnClickListener { showCategoryForm(binding) }
+        binding.btnAddVehicle.setOnClickListener { showVehicleForm(binding) }
+        binding.btnAddItem.setOnClickListener { showItemForm(binding) }
+        binding.btnCancel.setOnClickListener { dismissSheet(binding, sheet) }
 
         binding.btnBackToMenu.setOnClickListener {
             showMenu(binding)
@@ -732,36 +701,20 @@ class ProductsFragment : Fragment() {
             clearVehicleForm(binding)
         }
 
-        binding.btnCategoryCancel.setOnClickListener {
-            dismissSheet(binding, sheet)
-        }
+        binding.btnCategoryCancel.setOnClickListener { dismissSheet(binding, sheet) }
+        binding.btnSaveCategory.setOnClickListener { saveCategory(binding, sheet) }
 
-        binding.btnSaveCategory.setOnClickListener {
-            saveCategory(binding, sheet)
-        }
-
-        binding.btnVehicleCancel.setOnClickListener {
-            dismissSheet(binding, sheet)
-        }
-
-        binding.btnSaveVehicle.setOnClickListener {
-            saveVehicle(binding, sheet)
-        }
+        binding.btnVehicleCancel.setOnClickListener { dismissSheet(binding, sheet) }
+        binding.btnSaveVehicle.setOnClickListener { saveVehicle(binding, sheet) }
 
         binding.btnBackToMenuFromItem.setOnClickListener {
             showMenu(binding)
             clearItemForm(binding)
         }
 
-        binding.btnItemCancel.setOnClickListener {
-            dismissSheet(binding, sheet)
-        }
+        binding.btnItemCancel.setOnClickListener { dismissSheet(binding, sheet) }
+        binding.btnSaveItem.setOnClickListener { saveItem(binding, sheet) }
 
-        binding.btnSaveItem.setOnClickListener {
-            saveItem(binding, sheet)
-        }
-
-        // Image selection click listener
         binding.btnSelectImage.setOnClickListener {
             checkPermissionAndOpenPicker()
         }
@@ -778,17 +731,19 @@ class ProductsFragment : Fragment() {
     private fun dismissSheet(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         bottomSheetDropdownPopup?.dismiss()
         vehicleTypePopup?.dismiss()
+        vehicleDropdownPopup?.dismiss()
         currentSheetBinding = null
         sheet.dismiss()
     }
 
     // ==============================
-    // 11. NAVIGATION - MENU & FORMS
+    // NAVIGATION - MENU & FORMS
     // ==============================
 
     private fun showMenu(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
         vehicleTypePopup?.dismiss()
+        vehicleDropdownPopup?.dismiss()
         binding.menuContainer.visibility = View.VISIBLE
         binding.categoryFormContainer.visibility = View.GONE
         binding.vehicleFormContainer.visibility = View.GONE
@@ -798,6 +753,7 @@ class ProductsFragment : Fragment() {
     private fun showCategoryForm(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
         vehicleTypePopup?.dismiss()
+        vehicleDropdownPopup?.dismiss()
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.VISIBLE
         binding.vehicleFormContainer.visibility = View.GONE
@@ -807,22 +763,22 @@ class ProductsFragment : Fragment() {
     private fun showVehicleForm(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
         vehicleTypePopup?.dismiss()
+        vehicleDropdownPopup?.dismiss()
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.GONE
         binding.vehicleFormContainer.visibility = View.VISIBLE
         binding.itemFormContainer.visibility = View.GONE
-
         clearVehicleFormFocus(binding)
     }
 
     private fun showItemForm(binding: AddProductSheetBinding) {
         bottomSheetDropdownPopup?.dismiss()
         vehicleTypePopup?.dismiss()
+        vehicleDropdownPopup?.dismiss()
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.GONE
         binding.vehicleFormContainer.visibility = View.GONE
         binding.itemFormContainer.visibility = View.VISIBLE
-
         clearAllFieldsFocus(binding)
         hideKeyboard(binding)
     }
@@ -834,7 +790,6 @@ class ProductsFragment : Fragment() {
         binding.etSellingPrice.clearFocus()
         binding.etStock.clearFocus()
         binding.etItemDescription.clearFocus()
-
         binding.etCategory.isFocusable = false
         binding.etCategory.isFocusableInTouchMode = false
         binding.etCategory.clearFocus()
@@ -846,7 +801,6 @@ class ProductsFragment : Fragment() {
         binding.etVehicleType.clearFocus()
         binding.etVehicleModel.clearFocus()
         binding.etVehicleDescription.clearFocus()
-
         binding.etVehicleType.isFocusable = false
         binding.etVehicleType.isFocusableInTouchMode = false
         binding.etVehicleType.clearFocus()
@@ -858,7 +812,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 12. FORM CLEAR FUNCTIONS
+    // FORM CLEAR FUNCTIONS
     // ==============================
 
     private fun clearCategoryForm(binding: AddProductSheetBinding) {
@@ -886,183 +840,495 @@ class ProductsFragment : Fragment() {
         binding.ivItemImage.setImageResource(R.drawable.ic_image)
         binding.tvTapToSelect.text = "Tap to select image"
         selectedImageUri = null
+        selectedVehicles.clear()
+        updateVehicleChips()
+        updateVehicleEditText()
         bottomSheetDropdownPopup?.dismiss()
+        vehicleDropdownPopup?.dismiss()
     }
 
     // ==============================
-    // 13. SAVE OPERATIONS
+    // VEHICLE MULTI-SELECT DROPDOWN WITH TYPE CHIPS
     // ==============================
 
-    private fun saveCategory(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
-        val name = binding.etCategoryName.text.toString().trim()
-        val description = binding.etCategoryDescription.text.toString().trim()
+    private fun setupVehicleMultiSelectDropdown(binding: AddProductSheetBinding) {
+        binding.etVehicles.apply {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            isClickable = true
+            isCursorVisible = false
+            inputType = android.text.InputType.TYPE_NULL
+            clearFocus()
 
-        when {
-            name.isEmpty() -> {
-                "Please enter a category name".toastError(requireContext())
-                return
-            }
-            name.length < 2 -> {
-                "Category name must be at least 2 characters".toastError(requireContext())
-                return
-            }
-            name.length > 50 -> {
-                "Category name must be less than 50 characters".toastError(requireContext())
-                return
+            setOnClickListener {
+                showVehicleMultiSelectDropdown(binding)
             }
         }
 
-        viewModel.saveCategory(name, description.takeIf { it.isNotEmpty() })
-        clearCategoryForm(binding)
-        bottomSheetDropdownPopup?.dismiss()
-        sheet.dismiss()
-    }
-
-    private fun saveVehicle(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
-        val name = binding.etVehicleName.text.toString().trim()
-        val company = binding.etVehicleCompany.text.toString().trim().takeIf { it.isNotEmpty() }
-        val type = selectedVehicleType
-        val model = binding.etVehicleModel.text.toString().trim().takeIf { it.isNotEmpty() }
-        val description = binding.etVehicleDescription.text.toString().trim().takeIf { it.isNotEmpty() }
-
-        when {
-            name.isEmpty() -> {
-                "Please enter a vehicle name".toastError(requireContext())
-                return
-            }
-            name.length < 2 -> {
-                "Vehicle name must be at least 2 characters".toastError(requireContext())
-                return
-            }
-            name.length > 100 -> {
-                "Vehicle name must be less than 100 characters".toastError(requireContext())
-                return
-            }
-            type == null -> {
-                "Please select a vehicle type".toastError(requireContext())
-                return
-            }
+        binding.etVehicles.post {
+            updateVehicleChips()
+            updateVehicleEditText()
         }
-
-        viewModel.saveVehicle(
-            name = name,
-            company = company,
-            type = type,
-            model = model,
-            description = description
-        )
-
-        clearVehicleForm(binding)
-        vehicleTypePopup?.dismiss()
-        sheet.dismiss()
     }
 
-    private fun saveItem(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
-        val categoryName = binding.etCategory.text.toString().trim()
-        val name = binding.etItemName.text.toString().trim()
-        val originalPriceStr = binding.etOriginalPrice.text.toString().trim()
-        val sellingPriceStr = binding.etSellingPrice.text.toString().trim()
-        val stockStr = binding.etStock.text.toString().trim()
-        val description = binding.etItemDescription.text.toString().trim()
-
-        if (!validateItemFields(binding)) return
-
-        val category = viewModel.getCategoryByName(categoryName)
-        if (category == null) {
-            "Selected category not found".toastError(requireContext())
+    private fun showVehicleMultiSelectDropdown(binding: AddProductSheetBinding) {
+        if (allVehicles.isEmpty()) {
+            "No vehicles available. Please create one first.".toastError(requireContext())
             return
         }
 
-        var savedImagePath: String? = null
-        selectedImageUri?.let { uri ->
-            savedImagePath = saveImageToInternalStorage(uri)
-            if (savedImagePath == null) {
-                "Failed to save image".toastError(requireContext())
-                return
-            }
-        }
+        vehicleDropdownPopup?.dismiss()
 
-        viewModel.saveItem(
-            categoryId = category.id,
-            name = name,
-            originalPrice = originalPriceStr.toDouble(),
-            sellingPrice = sellingPriceStr.toDouble(),
-            stock = stockStr.toInt(),
-            description = description.takeIf { it.isNotEmpty() },
-            imageUri = savedImagePath
+        val popupView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dropdown_vehicle_multiselect, null)
+
+        val searchEditText = popupView.findViewById<EditText>(R.id.etSearchVehicle)
+        val listView = popupView.findViewById<ListView>(R.id.lvVehicles)
+        val tvClearAll = popupView.findViewById<TextView>(R.id.tvClearAll)
+        val tvSelectedCount = popupView.findViewById<TextView>(R.id.tvSelectedCount)
+        val btnConfirm = popupView.findViewById<TextView>(R.id.btnConfirm)
+        val tvEmptyState = popupView.findViewById<TextView>(R.id.tvEmptyState)
+        val typeChipsContainer = popupView.findViewById<LinearLayout>(R.id.vehicleTypeChipsContainer)
+
+        filteredVehicles.clear()
+        filteredVehicles.addAll(allVehicles)
+
+        vehicleAdapter = VehicleMultiSelectAdapter(
+            context = requireContext(),
+            vehicles = filteredVehicles,
+            selectedVehicles = selectedVehicles,
+            onVehicleToggle = { vehicle, isChecked ->
+                if (isChecked) {
+                    if (!selectedVehicles.contains(vehicle)) selectedVehicles.add(vehicle)
+                } else {
+                    selectedVehicles.remove(vehicle)
+                }
+                updateVehicleSelectionUI(tvSelectedCount)
+                updateTypeChipSelectionStates(typeChipsContainer)
+            }
+        )
+        listView.adapter = vehicleAdapter
+
+        updateVehicleSelectionUI(tvSelectedCount)
+
+        buildTypeChips(
+            container = typeChipsContainer,
+            tvSelectedCount = tvSelectedCount,
+            tvEmptyState = tvEmptyState,
+            searchEditText = searchEditText
         )
 
-        clearItemForm(binding)
-        bottomSheetDropdownPopup?.dismiss()
-        sheet.dismiss()
-    }
+        searchEditText.doOnTextChanged { text, _, _, _ ->
+            filterVehicles(text?.toString()?.trim() ?: "", tvEmptyState)
+        }
 
-    private fun validateItemFields(binding: AddProductSheetBinding): Boolean {
-        val categoryName = binding.etCategory.text.toString().trim()
-        val name = binding.etItemName.text.toString().trim()
-        val originalPriceStr = binding.etOriginalPrice.text.toString().trim()
-        val sellingPriceStr = binding.etSellingPrice.text.toString().trim()
-        val stockStr = binding.etStock.text.toString().trim()
+        tvClearAll.setOnClickListener {
+            selectedVehicles.clear()
+            vehicleAdapter?.updateSelection(selectedVehicles)
+            updateVehicleSelectionUI(tvSelectedCount)
+            updateTypeChipSelectionStates(typeChipsContainer)
+        }
 
-        when {
-            categoryName.isEmpty() -> {
-                "Please select a category".toastError(requireContext())
-                return false
+        btnConfirm.setOnClickListener {
+            vehicleDropdownPopup?.dismiss()
+            updateVehicleChips()
+            updateVehicleEditText()
+        }
+
+        // Popup positioning (unchanged from your version)
+        binding.etVehicles.post {
+            val screenWidth = resources.displayMetrics.widthPixels
+            val screenHeight = resources.displayMetrics.heightPixels
+
+            val widthSpec = View.MeasureSpec.makeMeasureSpec((screenWidth * 0.92).toInt(), View.MeasureSpec.AT_MOST)
+            val heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            popupView.measure(widthSpec, heightSpec)
+
+            val contentHeight = popupView.measuredHeight + dp(20)
+
+            val location = IntArray(2)
+            binding.etVehicles.getLocationOnScreen(location)
+
+            val editTextBottom = location[1] + binding.etVehicles.height
+            val spaceBelow = screenHeight - editTextBottom - dp(20)
+            val spaceAbove = location[1] - dp(20)
+
+            val maxHeight = (screenHeight * 0.75).toInt()
+            val minHeight = dp(500)
+
+            val finalHeight = when {
+                contentHeight > spaceBelow && contentHeight > spaceAbove -> minOf(maxHeight, maxOf(spaceBelow, spaceAbove))
+                contentHeight < minHeight -> minHeight
+                else -> minOf(contentHeight, maxHeight)
             }
-            name.isEmpty() -> {
-                "Please enter an item name".toastError(requireContext())
-                return false
-            }
-            name.length < 2 -> {
-                "Item name must be at least 2 characters".toastError(requireContext())
-                return false
-            }
-            name.length > 100 -> {
-                "Item name must be less than 100 characters".toastError(requireContext())
-                return false
-            }
-            originalPriceStr.isEmpty() -> {
-                "Please enter the original price".toastError(requireContext())
-                return false
-            }
-            originalPriceStr.toDoubleOrNull() == null -> {
-                "Please enter a valid original price".toastError(requireContext())
-                return false
-            }
-            originalPriceStr.toDoubleOrNull()!! < 0 -> {
-                "Original price cannot be negative".toastError(requireContext())
-                return false
-            }
-            sellingPriceStr.isEmpty() -> {
-                "Please enter the selling price".toastError(requireContext())
-                return false
-            }
-            sellingPriceStr.toDoubleOrNull() == null -> {
-                "Please enter a valid selling price".toastError(requireContext())
-                return false
-            }
-            sellingPriceStr.toDoubleOrNull()!! < 0 -> {
-                "Selling price cannot be negative".toastError(requireContext())
-                return false
-            }
-            stockStr.isEmpty() -> {
-                "Please enter the stock quantity".toastError(requireContext())
-                return false
-            }
-            stockStr.toIntOrNull() == null -> {
-                "Please enter a valid stock quantity".toastError(requireContext())
-                return false
-            }
-            stockStr.toIntOrNull()!! < 0 -> {
-                "Stock quantity cannot be negative".toastError(requireContext())
-                return false
+
+            val popupWidth = (screenWidth * 0.92).toInt()
+            val xOffset = (binding.etVehicles.width - popupWidth) / 2
+            val showAbove = spaceBelow < finalHeight && spaceAbove > finalHeight
+
+            vehicleDropdownPopup = PopupWindow(popupView, popupWidth, finalHeight, true).apply {
+                isFocusable = true
+                isOutsideTouchable = true
+                setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.rounded_dropdown_bg))
+                elevation = dp(8).toFloat()
+
+                if (showAbove) {
+                    showAsDropDown(binding.etVehicles, xOffset, -finalHeight - binding.etVehicles.height - dp(8))
+                } else {
+                    showAsDropDown(binding.etVehicles, xOffset, dp(8))
+                }
+
+                setOnDismissListener { vehicleDropdownPopup = null }
             }
         }
-        return true
+    }
+
+    private fun vehiclesForChip(type: VehicleType?): List<Vehicle> =
+        if (type == null) allVehicles else allVehicles.filter { it.type == type }
+
+    private fun isChipFullySelected(type: VehicleType?): Boolean {
+        val group = vehiclesForChip(type)
+        return group.isNotEmpty() && group.all { selectedVehicles.contains(it) }
+    }
+
+    private fun isChipPartiallySelected(type: VehicleType?): Boolean {
+        val group = vehiclesForChip(type)
+        return group.isNotEmpty() && group.any { selectedVehicles.contains(it) } && !isChipFullySelected(type)
+    }
+
+    private fun toggleChip(type: VehicleType?) {
+        val group = vehiclesForChip(type)
+        if (isChipFullySelected(type)) {
+            // Deselect all vehicles in this group
+            selectedVehicles.removeAll(group)
+        } else {
+            // Select all vehicles in this group
+            group.forEach { if (!selectedVehicles.contains(it)) selectedVehicles.add(it) }
+        }
+    }
+
+    private fun buildTypeChips(
+        container: LinearLayout,
+        tvSelectedCount: TextView,
+        tvEmptyState: TextView,
+        searchEditText: EditText
+    ) {
+        container.removeAllViews()
+
+        // "All" chip — type = null
+        container.addView(createTypeChip(type = null, name = "All", iconRes = null, container, tvSelectedCount, tvEmptyState, searchEditText))
+
+        VehicleType.values().forEach { type ->
+            val count = allVehicles.count { it.type == type }
+            if (count == 0) return@forEach
+            container.addView(createTypeChip(type, type.displayName, type.iconRes, container, tvSelectedCount, tvEmptyState, searchEditText))
+        }
+
+        updateTypeChipSelectionStates(container)
+    }
+    private fun createTypeChip(
+        type: VehicleType?,
+        name: String,
+        @DrawableRes iconRes: Int?,
+        container: LinearLayout,
+        tvSelectedCount: TextView,
+        tvEmptyState: TextView,
+        searchEditText: EditText
+    ): View {
+        val chip = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_type_chip, null) as LinearLayout
+
+        // Tag lets updateTypeChipSelectionStates find this chip's type reliably,
+        // instead of matching on displayName text.
+        chip.tag = type
+
+        val ivIcon: ImageView = chip.findViewById(R.id.ivTypeIcon)
+        val tvName: TextView = chip.findViewById(R.id.tvTypeName)
+        val tvCount: TextView = chip.findViewById(R.id.tvTypeCount)
+
+        if (iconRes != null) {
+            ivIcon.setImageResource(iconRes)
+            ivIcon.visibility = View.VISIBLE
+        } else {
+            ivIcon.visibility = View.GONE
+        }
+        tvName.text = name
+
+        chip.setOnClickListener {
+            toggleChip(type)
+            vehicleAdapter?.updateSelection(selectedVehicles)
+            updateVehicleSelectionUI(tvSelectedCount)
+            updateTypeChipSelectionStates(container)
+            filterVehicles(searchEditText.text.toString(), tvEmptyState)
+        }
+
+        return chip
+    }
+
+    private fun buildTypeChipsWithAutoSelect(
+        container: LinearLayout,
+        tvSelectedCount: TextView,
+        tvEmptyState: TextView,
+        searchEditText: EditText,
+        typeChipsContainer: LinearLayout
+    ) {
+        container.removeAllViews()
+
+        // Add "All" chip
+        val allChip = createTypeChipWithAutoSelect(
+            type = null,
+            name = "All",
+            iconRes = null,
+            count = allVehicles.size,
+            isSelected = selectedVehicles.size == allVehicles.size && allVehicles.isNotEmpty(),
+            onSelect = {
+                selectedVehicles.clear()
+                selectedVehicles.addAll(allVehicles)
+                vehicleAdapter?.updateSelection(selectedVehicles)
+                updateVehicleSelectionUI(tvSelectedCount)
+                updateTypeChipSelectionStates(typeChipsContainer)
+                filterVehicles(searchEditText.text.toString(), tvEmptyState)
+            },
+            onDeselect = {
+                selectedVehicles.clear()
+                vehicleAdapter?.updateSelection(selectedVehicles)
+                updateVehicleSelectionUI(tvSelectedCount)
+                updateTypeChipSelectionStates(typeChipsContainer)
+                filterVehicles(searchEditText.text.toString(), tvEmptyState)
+            }
+        )
+        container.addView(allChip)
+
+        // Show ONLY VehicleTypes that have at least 1 vehicle
+        VehicleType.values().forEach { type ->
+            val vehiclesOfType = allVehicles.filter { it.type == type }
+            val count = vehiclesOfType.size
+
+            // Skip if count is 0 (don't show empty types)
+            if (count == 0) return@forEach
+
+            val allSelected = vehiclesOfType.isNotEmpty() && vehiclesOfType.all { selectedVehicles.contains(it) }
+            val someSelected = vehiclesOfType.isNotEmpty() && vehiclesOfType.any { selectedVehicles.contains(it) }
+
+            val chip = createTypeChipWithAutoSelect(
+                type = type,
+                name = type.displayName,
+                iconRes = type.iconRes,
+                count = count,
+                isSelected = allSelected,
+                isPartial = someSelected && !allSelected,
+                onSelect = {
+                    vehiclesOfType.forEach { vehicle ->
+                        if (!selectedVehicles.contains(vehicle)) {
+                            selectedVehicles.add(vehicle)
+                        }
+                    }
+                    vehicleAdapter?.updateSelection(selectedVehicles)
+                    updateVehicleSelectionUI(tvSelectedCount)
+                    updateTypeChipSelectionStates(typeChipsContainer)
+                    filterVehicles(searchEditText.text.toString(), tvEmptyState)
+                },
+                onDeselect = {
+                    vehiclesOfType.forEach { vehicle ->
+                        selectedVehicles.remove(vehicle)
+                    }
+                    vehicleAdapter?.updateSelection(selectedVehicles)
+                    updateVehicleSelectionUI(tvSelectedCount)
+                    updateTypeChipSelectionStates(typeChipsContainer)
+                    filterVehicles(searchEditText.text.toString(), tvEmptyState)
+                }
+            )
+            container.addView(chip)
+        }
+    }
+
+    private fun createTypeChipWithAutoSelect(
+        type: VehicleType?,
+        name: String,
+        @DrawableRes iconRes: Int?,
+        count: Int,
+        isSelected: Boolean = false,
+        isPartial: Boolean = false,
+        onSelect: () -> Unit,
+        onDeselect: () -> Unit
+    ): View {
+        val chip = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_type_chip, null) as LinearLayout
+
+        val ivIcon: ImageView = chip.findViewById(R.id.ivTypeIcon)
+        val tvName: TextView = chip.findViewById(R.id.tvTypeName)
+        val tvCount: TextView = chip.findViewById(R.id.tvTypeCount)
+
+        if (iconRes != null) {
+            ivIcon.setImageResource(iconRes)
+            ivIcon.visibility = View.VISIBLE
+            ivIcon.setColorFilter(
+                if (isSelected) ContextCompat.getColor(requireContext(), R.color.white)
+                else ContextCompat.getColor(requireContext(), R.color.grey)
+            )
+        } else {
+            ivIcon.visibility = View.GONE
+        }
+
+        tvName.text = name
+        tvName.setTextColor(
+            if (isSelected) ContextCompat.getColor(requireContext(), R.color.white)
+            else ContextCompat.getColor(requireContext(), R.color.black)
+        )
+
+        tvCount.text = "($count)"
+        tvCount.setTextColor(
+            if (isSelected) ContextCompat.getColor(requireContext(), R.color.white)
+            else ContextCompat.getColor(requireContext(), R.color.grey)
+        )
+
+        val chipColor = when {
+            isSelected -> R.color.chip_selected
+            isPartial -> R.color.chip_partial
+            else -> R.color.chip_unselected
+        }
+        chip.isSelected = isSelected
+        chip.backgroundTintList = ContextCompat.getColorStateList(requireContext(), chipColor)
+
+        chip.setOnClickListener {
+            if (chip.isSelected) {
+                chip.isSelected = false
+                chip.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.chip_unselected)
+                tvName.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+                tvCount.setTextColor(ContextCompat.getColor(requireContext(), R.color.grey))
+                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), R.color.grey))
+                onDeselect()
+            } else {
+                chip.isSelected = true
+                chip.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.chip_selected)
+                tvName.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                tvCount.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), R.color.white))
+                onSelect()
+            }
+        }
+
+        return chip
+    }
+
+    private fun updateTypeChipSelectionStates(container: LinearLayout) {
+        for (i in 0 until container.childCount) {
+            val chip = container.getChildAt(i) as LinearLayout
+            val type = chip.tag as VehicleType?
+            val tvName = chip.findViewById<TextView>(R.id.tvTypeName)
+            val tvCount = chip.findViewById<TextView>(R.id.tvTypeCount)
+            val ivIcon = chip.findViewById<ImageView>(R.id.ivTypeIcon)
+
+            val count = vehiclesForChip(type).size
+            val selected = isChipFullySelected(type)
+            val partial = isChipPartiallySelected(type)
+
+            tvCount.text = "($count)"
+
+            val mainColor = when {
+                selected -> R.color.chip_selected
+                partial -> R.color.chip_partial
+                else -> R.color.black
+            }
+            val secondaryColor = when {
+                selected -> R.color.chip_selected
+                partial -> R.color.chip_partial
+                else -> R.color.grey
+            }
+
+            tvName.setTextColor(ContextCompat.getColor(requireContext(), mainColor))
+            tvCount.setTextColor(ContextCompat.getColor(requireContext(), secondaryColor))
+            if (ivIcon.visibility == View.VISIBLE) {
+                ivIcon.setColorFilter(ContextCompat.getColor(requireContext(), secondaryColor))
+            }
+        }
+    }
+    private fun filterVehicles(query: String, tvEmptyState: TextView) {
+        val filtered = allVehicles.filter { vehicle ->
+            query.isEmpty() ||
+                    vehicle.name.contains(query, ignoreCase = true) ||
+                    (vehicle.company?.contains(query, ignoreCase = true) == true) ||
+                    (vehicle.model?.contains(query, ignoreCase = true) == true)
+        }
+        vehicleAdapter?.updateList(filtered)
+        tvEmptyState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun updateVehicleSelectionUI(tvSelectedCount: TextView?) {
+        val count = selectedVehicles.size
+        tvSelectedCount?.text = "$count vehicle${if (count != 1) "s" else ""} selected"
+    }
+
+    private fun updateVehicleEditText() {
+        currentSheetBinding?.let { binding ->
+            val count = selectedVehicles.size
+            if (count == 0) {
+                binding.etVehicles.setText("")
+                binding.etVehicles.hint = "Select Vehicles"
+            } else {
+                binding.etVehicles.setText("$count vehicle${if (count > 1) "s" else ""} selected")
+            }
+        }
+    }
+
+    private fun updateVehicleChips() {
+        currentSheetBinding?.let { binding ->
+            if (selectedVehicles.isEmpty()) {
+                binding.selectedVehiclesContainer.visibility = View.GONE
+            } else {
+                binding.selectedVehiclesContainer.visibility = View.VISIBLE
+
+                val chipsContainer = binding.vehicleChipsContainer
+                chipsContainer.removeAllViews()
+
+                val displayVehicles = if (selectedVehicles.size > 4) {
+                    selectedVehicles.take(4) + selectedVehicles.drop(4)
+                } else {
+                    selectedVehicles
+                }
+
+                displayVehicles.forEach { vehicle ->
+                    val chip = createVehicleChip(vehicle)
+                    chipsContainer.addView(chip)
+                }
+
+            }
+        }
+    }
+
+    private fun createMoreChip(count: Int): View {
+        val chip = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_vehicle_chip, null) as LinearLayout
+
+        val tvChipName: TextView = chip.findViewById(R.id.tvChipName)
+        val ivRemove: ImageView = chip.findViewById(R.id.ivRemoveVehicle)
+
+        tvChipName.text = "+$count more"
+        ivRemove.visibility = View.GONE
+
+        return chip
+    }
+
+    private fun createVehicleChip(vehicle: Vehicle): View {
+        val chip = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_vehicle_chip, null) as LinearLayout
+
+        val tvChipName: TextView = chip.findViewById(R.id.tvChipName)
+        val ivRemove: ImageView = chip.findViewById(R.id.ivRemoveVehicle)
+
+        tvChipName.text = vehicle.name
+
+        ivRemove.setOnClickListener {
+            selectedVehicles.remove(vehicle)
+            updateVehicleChips()
+            updateVehicleEditText()
+        }
+
+        return chip
     }
 
     // ==============================
-    // 14. BOTTOM SHEET DROPDOWN
+    // BOTTOM SHEET CATEGORY DROPDOWN
     // ==============================
 
     private fun setupBottomSheetCategoryDropdown(binding: AddProductSheetBinding) {
@@ -1172,7 +1438,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 15. VEHICLE TYPE DROPDOWN
+    // VEHICLE TYPE DROPDOWN
     // ==============================
 
     private fun setupVehicleTypeDropdown(binding: AddProductSheetBinding) {
@@ -1202,7 +1468,6 @@ class ProductsFragment : Fragment() {
         val searchEditText = popupView.findViewById<EditText>(R.id.etSearchCategory)
         val listView = popupView.findViewById<ListView>(R.id.lvCategories)
 
-        // Hide search for vehicle types as it's a fixed list
         searchEditText.visibility = View.GONE
 
         val adapter = ArrayAdapter(
@@ -1261,5 +1526,191 @@ class ProductsFragment : Fragment() {
                 }
             }
         }
+    }
+
+    // ==============================
+    // SAVE OPERATIONS
+    // ==============================
+
+    private fun saveCategory(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
+        val name = binding.etCategoryName.text.toString().trim()
+        val description = binding.etCategoryDescription.text.toString().trim()
+
+        when {
+            name.isEmpty() -> {
+                "Please enter a category name".toastError(requireContext())
+                return
+            }
+            name.length < 2 -> {
+                "Category name must be at least 2 characters".toastError(requireContext())
+                return
+            }
+            name.length > 50 -> {
+                "Category name must be less than 50 characters".toastError(requireContext())
+                return
+            }
+        }
+
+        viewModel.saveCategory(name, description.takeIf { it.isNotEmpty() })
+        clearCategoryForm(binding)
+        bottomSheetDropdownPopup?.dismiss()
+        sheet.dismiss()
+    }
+
+    private fun saveVehicle(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
+        val name = binding.etVehicleName.text.toString().trim()
+        val company = binding.etVehicleCompany.text.toString().trim().takeIf { it.isNotEmpty() }
+        val type = selectedVehicleType
+        val model = binding.etVehicleModel.text.toString().trim().takeIf { it.isNotEmpty() }
+        val description = binding.etVehicleDescription.text.toString().trim().takeIf { it.isNotEmpty() }
+
+        when {
+            name.isEmpty() -> {
+                "Please enter a vehicle name".toastError(requireContext())
+                return
+            }
+            name.length < 2 -> {
+                "Vehicle name must be at least 2 characters".toastError(requireContext())
+                return
+            }
+            name.length > 100 -> {
+                "Vehicle name must be less than 100 characters".toastError(requireContext())
+                return
+            }
+            type == null -> {
+                "Please select a vehicle type".toastError(requireContext())
+                return
+            }
+        }
+
+        viewModel.saveVehicle(
+            name = name,
+            company = company,
+            type = type,
+            model = model,
+            description = description
+        )
+
+        clearVehicleForm(binding)
+        vehicleTypePopup?.dismiss()
+        sheet.dismiss()
+    }
+
+    private fun saveItem(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
+        val categoryName = binding.etCategory.text.toString().trim()
+        val name = binding.etItemName.text.toString().trim()
+        val originalPriceStr = binding.etOriginalPrice.text.toString().trim()
+        val sellingPriceStr = binding.etSellingPrice.text.toString().trim()
+        val stockStr = binding.etStock.text.toString().trim()
+        val description = binding.etItemDescription.text.toString().trim()
+
+        if (!validateItemFields(binding)) return
+
+        val category = viewModel.getCategoryByName(categoryName)
+        if (category == null) {
+            "Selected category not found".toastError(requireContext())
+            return
+        }
+
+        var savedImagePath: String? = null
+        selectedImageUri?.let { uri ->
+            savedImagePath = saveImageToInternalStorage(uri)
+            if (savedImagePath == null) {
+                "Failed to save image".toastError(requireContext())
+                return
+            }
+        }
+
+        lifecycleScope.launch {
+            try {
+                val itemId = viewModel.saveItemAndGetId(
+                    categoryId = category.id,
+                    name = name,
+                    originalPrice = originalPriceStr.toDouble(),
+                    sellingPrice = sellingPriceStr.toDouble(),
+                    stock = stockStr.toInt(),
+                    description = description.takeIf { it.isNotEmpty() },
+                    imageUri = savedImagePath
+                )
+
+                if (selectedVehicles.isNotEmpty() && itemId != null) {
+                    val vehicleIds = selectedVehicles.map { it.id }
+                    viewModel.assignVehiclesToItem(itemId, vehicleIds)
+                }
+
+                clearItemForm(binding)
+                bottomSheetDropdownPopup?.dismiss()
+                vehicleDropdownPopup?.dismiss()
+                sheet.dismiss()
+
+                "Item saved successfully!".toastSuccess(requireContext())
+            } catch (e: Exception) {
+                "Failed to save item: ${e.message}".toastError(requireContext())
+            }
+        }
+    }
+
+    private fun validateItemFields(binding: AddProductSheetBinding): Boolean {
+        val categoryName = binding.etCategory.text.toString().trim()
+        val name = binding.etItemName.text.toString().trim()
+        val originalPriceStr = binding.etOriginalPrice.text.toString().trim()
+        val sellingPriceStr = binding.etSellingPrice.text.toString().trim()
+        val stockStr = binding.etStock.text.toString().trim()
+
+        when {
+            categoryName.isEmpty() -> {
+                "Please select a category".toastError(requireContext())
+                return false
+            }
+            name.isEmpty() -> {
+                "Please enter an item name".toastError(requireContext())
+                return false
+            }
+            name.length < 2 -> {
+                "Item name must be at least 2 characters".toastError(requireContext())
+                return false
+            }
+            name.length > 100 -> {
+                "Item name must be less than 100 characters".toastError(requireContext())
+                return false
+            }
+            originalPriceStr.isEmpty() -> {
+                "Please enter the original price".toastError(requireContext())
+                return false
+            }
+            originalPriceStr.toDoubleOrNull() == null -> {
+                "Please enter a valid original price".toastError(requireContext())
+                return false
+            }
+            originalPriceStr.toDoubleOrNull()!! < 0 -> {
+                "Original price cannot be negative".toastError(requireContext())
+                return false
+            }
+            sellingPriceStr.isEmpty() -> {
+                "Please enter the selling price".toastError(requireContext())
+                return false
+            }
+            sellingPriceStr.toDoubleOrNull() == null -> {
+                "Please enter a valid selling price".toastError(requireContext())
+                return false
+            }
+            sellingPriceStr.toDoubleOrNull()!! < 0 -> {
+                "Selling price cannot be negative".toastError(requireContext())
+                return false
+            }
+            stockStr.isEmpty() -> {
+                "Please enter the stock quantity".toastError(requireContext())
+                return false
+            }
+            stockStr.toIntOrNull() == null -> {
+                "Please enter a valid stock quantity".toastError(requireContext())
+                return false
+            }
+            stockStr.toIntOrNull()!! < 0 -> {
+                "Stock quantity cannot be negative".toastError(requireContext())
+                return false
+            }
+        }
+        return true
     }
 }

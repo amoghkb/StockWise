@@ -21,4 +21,8 @@
     <color name="toast_info_bg">#2196F3</color>
     <color name="toast_info_border">#1976D2</color>
 
+    <color name="chip_unselected">#F0F0F0</color>
+    <color name="chip_selected">#005DA7</color>
+    <color name="chip_partial">#4A90D9</color>
+
 </resources>

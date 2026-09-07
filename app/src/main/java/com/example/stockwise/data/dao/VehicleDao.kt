@@ -49,4 +49,94 @@ interface VehicleDao {
 
     @Query("SELECT COUNT(*) FROM vehicles WHERE type = :type AND isDeleted = 0")
     suspend fun getActiveVehicleCountByType(type: VehicleType): Int
+
+    // ==================== NEW VEHICLE-ITEM RELATIONSHIP METHODS ====================
+
+    @Query("""
+        SELECT DISTINCT vehicleId FROM item_vehicle_relations
+    """)
+    suspend fun getAllAssignedVehicleIds(): List<String>
+
+    @Query("""
+        SELECT * FROM vehicles 
+        WHERE isDeleted = 0 AND id IN (
+            SELECT DISTINCT vehicleId FROM item_vehicle_relations
+        )
+        ORDER BY name ASC
+    """)
+    fun getAssignedVehicles(): Flow<List<Vehicle>>
+
+    @Query("""
+        SELECT * FROM vehicles 
+        WHERE isDeleted = 0 AND id NOT IN (
+            SELECT DISTINCT vehicleId FROM item_vehicle_relations
+        )
+        ORDER BY name ASC
+    """)
+    fun getUnassignedVehicles(): Flow<List<Vehicle>>
+
+    @Query("""
+        SELECT * FROM vehicles 
+        WHERE isDeleted = 0 
+        AND id IN (
+            SELECT DISTINCT vehicleId FROM item_vehicle_relations
+        )
+        AND (name LIKE '%' || :query || '%' 
+        OR company LIKE '%' || :query || '%'
+        OR model LIKE '%' || :query || '%')
+        ORDER BY name ASC
+    """)
+    fun searchAssignedVehicles(query: String): Flow<List<Vehicle>>
+
+    @Query("""
+        SELECT * FROM vehicles 
+        WHERE isDeleted = 0 
+        AND id NOT IN (
+            SELECT DISTINCT vehicleId FROM item_vehicle_relations
+        )
+        AND (name LIKE '%' || :query || '%' 
+        OR company LIKE '%' || :query || '%'
+        OR model LIKE '%' || :query || '%')
+        ORDER BY name ASC
+    """)
+    fun searchUnassignedVehicles(query: String): Flow<List<Vehicle>>
+
+    @Query("""
+        SELECT COUNT(*) FROM vehicles 
+        WHERE isDeleted = 0 AND id IN (
+            SELECT DISTINCT vehicleId FROM item_vehicle_relations
+        )
+    """)
+    suspend fun getAssignedVehicleCount(): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM vehicles 
+        WHERE isDeleted = 0 AND id NOT IN (
+            SELECT DISTINCT vehicleId FROM item_vehicle_relations
+        )
+    """)
+    suspend fun getUnassignedVehicleCount(): Int
+
+    @Query("""
+        SELECT v.* FROM vehicles v
+        INNER JOIN item_vehicle_relations ivr ON v.id = ivr.vehicleId
+        WHERE ivr.itemId = :itemId AND v.isDeleted = 0
+        ORDER BY v.name ASC
+    """)
+    suspend fun getVehiclesByItemId(itemId: String): List<Vehicle>
+
+    @Query("""
+        SELECT COUNT(*) FROM vehicles v
+        INNER JOIN item_vehicle_relations ivr ON v.id = ivr.vehicleId
+        WHERE ivr.itemId = :itemId AND v.isDeleted = 0
+    """)
+    suspend fun getVehicleCountByItemId(itemId: String): Int
+
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM item_vehicle_relations 
+            WHERE itemId = :itemId AND vehicleId = :vehicleId
+        )
+    """)
+    suspend fun isVehicleAssignedToItem(itemId: String, vehicleId: String): Boolean
 }
