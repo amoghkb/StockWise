@@ -1,19 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="16dp"
     android:gravity="center_vertical">
 
-    <ImageView
-        android:id="@+id/ivItemImage"
+    <androidx.cardview.widget.CardView
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:background="@drawable/product_image_placeholder_bg"
-        android:src="@drawable/ic_belts"
-        android:padding="10dp"
-        android:scaleType="centerInside" />
+        app:cardCornerRadius="8dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="@android:color/transparent">
+
+        <ImageView
+            android:id="@+id/ivItemImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_image"
+            android:padding="0dp" />
+
+    </androidx.cardview.widget.CardView>
 
     <LinearLayout
         android:layout_width="0dp"

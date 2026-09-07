@@ -1,5 +1,6 @@
 package com.example.stockwise.fragment
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -18,6 +19,7 @@ import com.example.stockwise.data.entities.Item
 import com.example.stockwise.databinding.AddProductSheetBinding
 import com.example.stockwise.viewmodels.ProductsViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import java.io.File
 
 @AndroidEntryPoint
 class ItemDetailFragment : Fragment() {
@@ -49,6 +51,7 @@ class ItemDetailFragment : Fragment() {
     private var sellingPrice: Double = 0.0
     private var totalSales: Int = 0
     private var categoryId: String = ""
+    private var imageUri: String? = null // ADDED: Store image URI
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -119,6 +122,7 @@ class ItemDetailFragment : Fragment() {
             sellingPrice = bundle.getDouble("selling_price", 0.0)
             totalSales = bundle.getInt("total_sales", 0)
             categoryId = bundle.getString("category_id", "")
+            imageUri = bundle.getString("image_uri", null) // GET IMAGE URI
 
             // Set data to views
             tvCategory.text = categoryName
@@ -133,8 +137,8 @@ class ItemDetailFragment : Fragment() {
             // Update badge based on stock level
             updateStockBadge(currentStock)
 
-            // Keep image simple - using default drawable
-            imgProduct.setImageResource(R.drawable.ic_belts)
+            // Load image if available - FIXED: Display the image
+            loadProductImage()
         }
 
         // If no arguments were passed, show a message
@@ -142,6 +146,28 @@ class ItemDetailFragment : Fragment() {
             tvTitle.text = "No item data available"
             imgProduct.setImageResource(R.drawable.ic_belts)
             tvStockBadge.visibility = View.GONE
+        }
+    }
+
+    /**
+     * Loads the product image from the saved URI
+     */
+    private fun loadProductImage() {
+        if (!imageUri.isNullOrEmpty()) {
+            try {
+                val imageFile = File(imageUri)
+                if (imageFile.exists()) {
+                    imgProduct.setImageURI(Uri.fromFile(imageFile))
+                    imgProduct.scaleType = ImageView.ScaleType.CENTER_CROP
+                } else {
+                    imgProduct.setImageResource(R.drawable.ic_belts)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                imgProduct.setImageResource(R.drawable.ic_belts)
+            }
+        } else {
+            imgProduct.setImageResource(R.drawable.ic_belts)
         }
     }
 
@@ -199,6 +225,19 @@ class ItemDetailFragment : Fragment() {
         binding.etStock.setText(currentStock.toString())
         binding.etItemDescription.setText(description)
 
+        // Show existing image if available
+        if (!imageUri.isNullOrEmpty()) {
+            try {
+                val imageFile = File(imageUri)
+                if (imageFile.exists()) {
+                    binding.ivItemImage.setImageURI(Uri.fromFile(imageFile))
+                    binding.tvTapToSelect.text = "Change Image"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         // Make category field non-editable (just for display)
         binding.etCategory.isFocusable = false
         binding.etCategory.isFocusableInTouchMode = false
@@ -255,9 +294,6 @@ class ItemDetailFragment : Fragment() {
         binding.btnBackToMenu.visibility = View.GONE
     }
 
-    /**
-     * Updates the item with new values and saves to database
-     */
     /**
      * Updates the item with new values and saves to database
      */
@@ -362,6 +398,7 @@ class ItemDetailFragment : Fragment() {
         // Close the sheet
         sheet.dismiss()
     }
+
     companion object {
         fun newInstance(
             itemId: String = "",
@@ -373,7 +410,8 @@ class ItemDetailFragment : Fragment() {
             costPrice: Double = 0.0,
             sellingPrice: Double = 0.0,
             totalSales: Int = 0,
-            categoryId: String = ""
+            categoryId: String = "",
+            imageUri: String? = null
         ): ItemDetailFragment {
             return ItemDetailFragment().apply {
                 arguments = Bundle().apply {
@@ -387,6 +425,7 @@ class ItemDetailFragment : Fragment() {
                     putDouble("selling_price", sellingPrice)
                     putInt("total_sales", totalSales)
                     putString("category_id", categoryId)
+                    putString("image_uri", imageUri)
                 }
             }
         }

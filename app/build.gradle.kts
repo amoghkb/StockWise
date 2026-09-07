@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.implementation
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -49,6 +51,9 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.material)
+
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    kapt("com.github.bumptech.glide:compiler:4.16.0") 
 
     // Room
     implementation(libs.androidx.room.runtime)

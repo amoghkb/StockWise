@@ -1,16 +1,29 @@
 package com.example.stockwise.fragment
 
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.text.Html
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.example.stockwise.R
 import com.example.stockwise.commons.ReusableBottomSheet
 import com.example.stockwise.commons.toastError
@@ -22,6 +35,9 @@ import com.example.stockwise.databinding.FragmentProductsBinding
 import com.example.stockwise.viewmodels.ProductsViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 
 @AndroidEntryPoint
 class ProductsFragment : Fragment() {
@@ -36,7 +52,49 @@ class ProductsFragment : Fragment() {
     private lateinit var viewModel: ProductsViewModel
 
     // ==============================
-    // 2. SEARCH STATE
+    // 2. IMAGE SELECTION
+    // ==============================
+
+    private var selectedImageUri: Uri? = null
+    private var currentSheetBinding: AddProductSheetBinding? = null
+
+    // Image picker launcher for gallery
+    private val imagePickerLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val data: Intent? = result.data
+                if (data != null && data.data != null) {
+                    selectedImageUri = data.data
+                    updateImagePreview()
+                }
+            }
+        }
+
+    // Camera launcher
+    private val cameraLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                updateImagePreview()
+                "Photo captured successfully".toastSuccess(requireContext())
+            } else {
+                "Camera cancelled".toastError(requireContext())
+            }
+        }
+
+    // Permission launcher
+    private val permissionLauncher: ActivityResultLauncher<Array<String>> =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val allGranted = permissions.values.all { it }
+            if (allGranted) {
+                openImagePicker()
+            } else {
+                val deniedPermissions = permissions.filter { !it.value }.keys.joinToString()
+                "Permission denied: $deniedPermissions".toastError(requireContext())
+            }
+        }
+
+    // ==============================
+    // 3. SEARCH STATE
     // ==============================
 
     private var currentQuery: String = ""
@@ -45,7 +103,7 @@ class ProductsFragment : Fragment() {
     private var hasInitializedDefaultExpansion = false
 
     // ==============================
-    // 3. BOTTOM SHEET DROPDOWN COMPONENTS
+    // 4. BOTTOM SHEET DROPDOWN COMPONENTS
     // ==============================
 
     private var bottomSheetDropdownPopup: PopupWindow? = null
@@ -54,7 +112,7 @@ class ProductsFragment : Fragment() {
     private var bottomSheetFilteredCategories = mutableListOf<String>()
 
     // ==============================
-    // 4. LIFECYCLE METHODS
+    // 5. LIFECYCLE METHODS
     // ==============================
 
     override fun onCreateView(
@@ -85,7 +143,7 @@ class ProductsFragment : Fragment() {
         (value * resources.displayMetrics.density).toInt()
 
     // ==============================
-    // 5. VIEW MODEL OBSERVERS
+    // 6. VIEW MODEL OBSERVERS
     // ==============================
 
     private fun observeViewModel() {
@@ -136,7 +194,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 6. UI SETUP
+    // 7. UI SETUP
     // ==============================
 
     private fun setupClickListeners() {
@@ -151,7 +209,214 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 7. RENDER
+    // 8. IMAGE PICKER FUNCTIONS
+    // ==============================
+
+    private fun openImagePicker() {
+        val options = arrayOf("Camera", "Gallery")
+        AlertDialog.Builder(requireContext())
+            .setTitle("Select Image")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> openCamera()
+                    1 -> openGallery()
+                }
+            }
+            .show()
+    }
+
+    private fun openCamera() {
+        try {
+            // Check if camera is available
+            if (!requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
+                "No camera available on this device".toastError(requireContext())
+                return
+            }
+
+            // Check if camera permission is granted
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    android.Manifest.permission.CAMERA
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                "Camera permission not granted".toastError(requireContext())
+                return
+            }
+
+            // For Android 10+ use MediaStore
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = android.content.ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, "IMG_${System.currentTimeMillis()}.jpg")
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+                }
+
+                val uri = requireContext().contentResolver.insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    contentValues
+                )
+
+                if (uri != null) {
+                    selectedImageUri = uri
+                    val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                    intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                    intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+                    if (intent.resolveActivity(requireContext().packageManager) != null) {
+                        cameraLauncher.launch(intent)
+                    } else {
+                        "No camera app found".toastError(requireContext())
+                    }
+                } else {
+                    "Failed to create image file".toastError(requireContext())
+                }
+            } else {
+                // For older Android versions, use FileProvider
+                val photoFile = createImageFile()
+                if (photoFile == null) {
+                    "Failed to create image file".toastError(requireContext())
+                    return
+                }
+
+                val photoUri = try {
+                    FileProvider.getUriForFile(
+                        requireContext(),
+                        "${requireContext().packageName}.fileprovider",
+                        photoFile
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Uri.fromFile(photoFile)
+                }
+
+                selectedImageUri = photoUri
+                val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                intent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+                if (intent.resolveActivity(requireContext().packageManager) != null) {
+                    cameraLauncher.launch(intent)
+                } else {
+                    "No camera app found".toastError(requireContext())
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            "Error opening camera: ${e.message}".toastError(requireContext())
+        }
+    }
+
+    private fun openGallery() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        intent.type = "image/*"
+        imagePickerLauncher.launch(intent)
+    }
+
+    private fun createImageFile(): File? {
+        try {
+            val timeStamp = System.currentTimeMillis()
+            val imageFileName = "JPEG_${timeStamp}_"
+            val storageDir = requireContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+
+            if (storageDir == null) {
+                return null
+            }
+
+            if (!storageDir.exists()) {
+                storageDir.mkdirs()
+            }
+
+            return File.createTempFile(
+                imageFileName,
+                ".jpg",
+                storageDir
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    private fun updateImagePreview() {
+        currentSheetBinding?.let { binding ->
+            selectedImageUri?.let { uri ->
+                try {
+                    binding.ivItemImage.setImageURI(uri)
+                    binding.tvTapToSelect.text = "Change Image"
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    "Failed to load image".toastError(requireContext())
+                }
+            }
+        }
+    }
+
+    private fun saveImageToInternalStorage(uri: Uri): String? {
+        try {
+            val context = requireContext()
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            if (inputStream == null) {
+                return null
+            }
+            val fileName = "item_${System.currentTimeMillis()}.jpg"
+            val file = File(context.filesDir, "images")
+            if (!file.exists()) {
+                file.mkdirs()
+            }
+            val outputFile = File(file, fileName)
+            val outputStream = FileOutputStream(outputFile)
+            inputStream.copyTo(outputStream)
+            inputStream.close()
+            outputStream.close()
+            return outputFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    private fun checkPermissionAndOpenPicker() {
+        val permissions = mutableListOf<String>()
+
+        // Camera permission
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissions.add(android.Manifest.permission.CAMERA)
+        }
+
+        // Storage permissions based on Android version
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    android.Manifest.permission.READ_MEDIA_IMAGES
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissions.add(android.Manifest.permission.READ_MEDIA_IMAGES)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+
+        if (permissions.isEmpty()) {
+            openImagePicker()
+        } else {
+            permissionLauncher.launch(permissions.toTypedArray())
+        }
+    }
+
+    // ==============================
+    // 9. RENDER
     // ==============================
 
     private fun renderProducts() {
@@ -300,6 +565,10 @@ class ProductsFragment : Fragment() {
         )
     }
 
+    // ==============================
+    // createItemView WITH GLIDE (UI UNCHANGED)
+    // ==============================
+
     private fun createItemView(itemWithCategory: ItemWithCategory): View {
         val inflater = LayoutInflater.from(requireContext())
         val itemView = inflater.inflate(R.layout.category_item_layout, null)
@@ -326,8 +595,40 @@ class ProductsFragment : Fragment() {
         priceText.text = "\u20B9${String.format("%.2f", item.sellingPrice)}"
         qtyText.text = "Qty: ${item.stock}"
 
-        // Keep image simple - using default drawable
-        itemImage.setImageResource(R.drawable.ic_belts)
+        // Set image size
+        val layoutParams = itemImage.layoutParams
+        layoutParams.width = dp(48)
+        layoutParams.height = dp(48)
+        itemImage.layoutParams = layoutParams
+
+        // Use CENTER_CROP to fill the entire image view
+        itemImage.scaleType = ImageView.ScaleType.CENTER_CROP
+
+        // Load image using Glide with rounded corners
+        val imagePath = item.imageUri
+        if (!imagePath.isNullOrEmpty()) {
+            try {
+                val imageFile = File(imagePath)
+                if (imageFile.exists()) {
+                    Glide.with(requireContext())
+                        .load(imageFile)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .placeholder(R.drawable.ic_image)
+                        .error(R.drawable.ic_image)
+                        .transform(RoundedCorners(dp(8)))  // KEEP THIS - it gives rounded corners on square image
+                        .centerCrop()
+                        .override(dp(48), dp(48))
+                        .into(itemImage)
+                } else {
+                    itemImage.setImageResource(R.drawable.ic_image)
+                }
+            } catch (e: Exception) {
+                itemImage.setImageResource(R.drawable.ic_image)
+            }
+        } else {
+            itemImage.setImageResource(R.drawable.ic_image)
+        }
+
 
         // ADD CLICK LISTENER FOR ITEM NAVIGATION
         itemView.setOnClickListener {
@@ -341,8 +642,7 @@ class ProductsFragment : Fragment() {
 
         return itemView
     }
-    // ==============================
-    // NAVIGATION TO ITEM DETAIL
+    // NAVIGATION TO ITEM DETAIL - UI UNCHANGED
     // ==============================
 
     private fun navigateToItemDetail(itemWithCategory: ItemWithCategory) {
@@ -359,6 +659,7 @@ class ProductsFragment : Fragment() {
             putDouble("selling_price", itemWithCategory.item.sellingPrice)
             putInt("total_sales", 0)
             putString("category_id", itemWithCategory.item.categoryId)
+            putString("image_uri", itemWithCategory.item.imageUri)
         }
 
         // Create the fragment and set arguments
@@ -376,21 +677,27 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 8. BOTTOM SHEET - OPEN & BIND
+    // 10. BOTTOM SHEET - OPEN & BIND
     // ==============================
 
     private fun openAddProductSheet() {
+        selectedImageUri = null
         val sheet = ReusableBottomSheet.newInstance(
             layoutRes = R.layout.add_product_sheet
         )
 
         sheet.setContentBinder { content ->
             val sheetBinding = AddProductSheetBinding.bind(content)
+            currentSheetBinding = sheetBinding
 
             setupBottomSheetCategoryDropdown(sheetBinding)
             showMenu(sheetBinding)
             preventAutoFocus(sheetBinding)
             setupSheetClickListeners(sheetBinding, sheet)
+
+            // Reset image preview
+            sheetBinding.ivItemImage.setImageResource(R.drawable.ic_image)
+            sheetBinding.tvTapToSelect.text = "Tap to select image"
         }
 
         sheet.show(parentFragmentManager, "AddProductSheet")
@@ -435,8 +742,9 @@ class ProductsFragment : Fragment() {
             saveItem(binding, sheet)
         }
 
+        // Image selection click listener
         binding.btnSelectImage.setOnClickListener {
-            "Image selection coming soon".toastError(requireContext())
+            checkPermissionAndOpenPicker()
         }
     }
 
@@ -450,11 +758,12 @@ class ProductsFragment : Fragment() {
 
     private fun dismissSheet(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
         bottomSheetDropdownPopup?.dismiss()
+        currentSheetBinding = null
         sheet.dismiss()
     }
 
     // ==============================
-    // 9. NAVIGATION - MENU & FORMS
+    // 11. NAVIGATION - MENU & FORMS
     // ==============================
 
     private fun showMenu(binding: AddProductSheetBinding) {
@@ -500,7 +809,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 10. FORM CLEAR FUNCTIONS
+    // 12. FORM CLEAR FUNCTIONS
     // ==============================
 
     private fun clearCategoryForm(binding: AddProductSheetBinding) {
@@ -515,11 +824,14 @@ class ProductsFragment : Fragment() {
         binding.etSellingPrice.text?.clear()
         binding.etStock.text?.clear()
         binding.etItemDescription.text?.clear()
+        binding.ivItemImage.setImageResource(R.drawable.ic_image)
+        binding.tvTapToSelect.text = "Tap to select image"
+        selectedImageUri = null
         bottomSheetDropdownPopup?.dismiss()
     }
 
     // ==============================
-    // 11. SAVE OPERATIONS
+    // 13. SAVE OPERATIONS
     // ==============================
 
     private fun saveCategory(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
@@ -563,6 +875,17 @@ class ProductsFragment : Fragment() {
             return
         }
 
+        // Save image if selected - THIS SAVES TO DB
+        var savedImagePath: String? = null
+        selectedImageUri?.let { uri ->
+            savedImagePath = saveImageToInternalStorage(uri)
+            if (savedImagePath == null) {
+                "Failed to save image".toastError(requireContext())
+                return
+            }
+        }
+
+        // Save item with image path to database
         viewModel.saveItem(
             categoryId = category.id,
             name = name,
@@ -570,7 +893,7 @@ class ProductsFragment : Fragment() {
             sellingPrice = sellingPriceStr.toDouble(),
             stock = stockStr.toInt(),
             description = description.takeIf { it.isNotEmpty() },
-            imageUri = null
+            imageUri = savedImagePath
         )
 
         clearItemForm(binding)
@@ -643,7 +966,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // 12. BOTTOM SHEET DROPDOWN
+    // 14. BOTTOM SHEET DROPDOWN
     // ==============================
 
     private fun setupBottomSheetCategoryDropdown(binding: AddProductSheetBinding) {

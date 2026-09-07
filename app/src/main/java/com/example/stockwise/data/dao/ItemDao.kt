@@ -87,4 +87,7 @@ interface ItemDao {
         ORDER BY items.stock ASC
     """)
     fun getLowStockItems(threshold: Int = 5): Flow<List<ItemWithCategory>>
+
+    @Query("SELECT * FROM items WHERE id = :itemId AND isDeleted = 0")
+    suspend fun getItemById(itemId: String): Item?
 }

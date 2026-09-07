@@ -60,10 +60,10 @@
         android:layout_marginBottom="16dp"
         android:src="@drawable/ic_plus"
         android:padding="4dp"
-        app:backgroundTint="@color/stock_wise_primary"
+        android:backgroundTint="@color/stock_wise_primary"
         app:tint="@android:color/white"
         app:borderWidth="0dp"
         app:fabSize="normal"
-        app:rippleColor="#33FFFFFF" />
-
+        app:rippleColor="#33FFFFFF"
+        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Circle" />
 </FrameLayout>
