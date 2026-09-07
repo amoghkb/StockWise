@@ -1,6 +1,7 @@
 package com.example.stockwise.ui.fragment
 
 import android.app.Activity
+import android.app.Dialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,11 +11,13 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.text.InputType
 import android.view.LayoutInflater
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -60,6 +63,7 @@ class ItemDetailFragment : Fragment() {
     private lateinit var tvStockBadge: TextView
     private lateinit var btnBack: ImageView
     private lateinit var btnEdit: ImageView
+    private lateinit var tvAssignedVehicles: TextView
 
     private lateinit var viewModel: ProductsViewModel
 
@@ -142,6 +146,7 @@ class ItemDetailFragment : Fragment() {
             tvStockBadge = view.findViewById(R.id.tv_stock_badge)
             btnBack = view.findViewById(R.id.btn_back)
             btnEdit = view.findViewById(R.id.btn_edit)
+            tvAssignedVehicles = view.findViewById(R.id.tv_assigned_vehicles)
         } catch (e: Exception) {
             e.printStackTrace()
             return
@@ -150,6 +155,7 @@ class ItemDetailFragment : Fragment() {
         setupClickListeners()
         loadDataFromArguments()
         loadVehicles()
+        setupImageLongPress()
     }
 
     override fun onDestroyView() {
@@ -204,7 +210,7 @@ class ItemDetailFragment : Fragment() {
 
         if (arguments == null) {
             tvTitle.text = "No item data available"
-            imgProduct.setImageResource(R.drawable.ic_belts)
+            imgProduct.setImageResource(R.drawable.ic_image)
             tvStockBadge.visibility = View.GONE
         }
     }
@@ -217,17 +223,62 @@ class ItemDetailFragment : Fragment() {
                     imgProduct.setImageURI(Uri.fromFile(imageFile))
                     imgProduct.scaleType = ImageView.ScaleType.CENTER_CROP
                 } else {
-                    imgProduct.setImageResource(R.drawable.ic_belts)
+                    imgProduct.setImageResource(R.drawable.ic_image)
+                    imgProduct.scaleType = ImageView.ScaleType.CENTER_INSIDE
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                imgProduct.setImageResource(R.drawable.ic_belts)
+                imgProduct.setImageResource(R.drawable.ic_image)
+                imgProduct.scaleType = ImageView.ScaleType.CENTER_INSIDE
             }
         } else {
-            imgProduct.setImageResource(R.drawable.ic_belts)
+            imgProduct.setImageResource(R.drawable.ic_image)
+            imgProduct.scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }
+    }
+    private fun setupImageLongPress() {
+        imgProduct.setOnLongClickListener {
+            showFullScreenImage()
+            true
         }
     }
 
+    private fun showFullScreenImage() {
+        val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(R.layout.dialog_fullscreen_image)
+
+        val fullScreenImage = dialog.findViewById<ImageView>(R.id.iv_fullscreen_image)
+        val closeButton = dialog.findViewById<ImageView>(R.id.iv_close_fullscreen)
+
+        // Load the image
+        if (!imageUri.isNullOrEmpty()) {
+            try {
+                val imageFile = File(imageUri)
+                if (imageFile.exists()) {
+                    fullScreenImage.setImageURI(Uri.fromFile(imageFile))
+                } else {
+                    fullScreenImage.setImageResource(R.drawable.ic_image)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                fullScreenImage.setImageResource(R.drawable.ic_image)
+            }
+        } else {
+            fullScreenImage.setImageResource(R.drawable.ic_image)
+        }
+
+        // Close button
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        // Click on image to close
+        fullScreenImage.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
     private fun updateStockBadge(stock: Int) {
         if (stock < 10) {
             tvStockBadge.text = "Low Stock"
@@ -250,9 +301,20 @@ class ItemDetailFragment : Fragment() {
                 val assignedVehicleIds = viewModel.getAssignedVehicleIdsForItem(itemId)
                 selectedVehicles.clear()
                 selectedVehicles.addAll(allVehicles.filter { it.id in assignedVehicleIds })
+
+                updateAssignedVehiclesDisplay()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    private fun updateAssignedVehiclesDisplay() {
+        if (selectedVehicles.isEmpty()) {
+            tvAssignedVehicles.text = "No compatible vehicles"
+        } else {
+            val vehicleNames = selectedVehicles.joinToString(", ") { it.name }
+            tvAssignedVehicles.text = vehicleNames
         }
     }
 
@@ -745,7 +807,6 @@ class ItemDetailFragment : Fragment() {
         val chip = LayoutInflater.from(requireContext())
             .inflate(R.layout.item_type_chip, null) as LinearLayout
 
-        // Tag lets updateTypeChipSelectionStates find this chip's type reliably
         chip.tag = type
 
         val ivIcon: ImageView = chip.findViewById(R.id.ivTypeIcon)
@@ -784,7 +845,6 @@ class ItemDetailFragment : Fragment() {
 
             tvCount.text = "($count)"
 
-            // No background chip — use text/icon color itself to show state
             val mainColor = when {
                 selected -> R.color.chip_selected
                 partial -> R.color.chip_partial
@@ -839,24 +899,27 @@ class ItemDetailFragment : Fragment() {
             val chipsContainer = binding.vehicleChipsContainer
             chipsContainer.removeAllViews()
 
-            // Same logic as ProductsFragment - shows all vehicles with scroll
-            selectedVehicles.forEach { vehicle ->
+            val maxDisplay = 4
+            val displayVehicles = selectedVehicles.take(maxDisplay)
+
+            displayVehicles.forEach { vehicle ->
                 val chip = createVehicleChip(binding, vehicle)
                 chipsContainer.addView(chip)
             }
+
+            if (selectedVehicles.size > maxDisplay) {
+                val chip = LayoutInflater.from(requireContext())
+                    .inflate(R.layout.item_vehicle_chip, binding.vehicleChipsContainer, false) as LinearLayout
+
+                val tvChipName: TextView = chip.findViewById(R.id.tvChipName)
+                val ivRemove: ImageView = chip.findViewById(R.id.ivRemoveVehicle)
+
+                tvChipName.text = "+${selectedVehicles.size - maxDisplay} more"
+                ivRemove.visibility = View.GONE
+
+                chipsContainer.addView(chip)
+            }
         }
-    }
-    private fun createMoreChip(binding: AddProductSheetBinding, count: Int): View {
-        val chip = LayoutInflater.from(requireContext())
-            .inflate(R.layout.item_vehicle_chip, binding.vehicleChipsContainer, false) as LinearLayout
-
-        val tvChipName: TextView = chip.findViewById(R.id.tvChipName)
-        val ivRemove: ImageView = chip.findViewById(R.id.ivRemoveVehicle)
-
-        tvChipName.text = "+$count more"
-        ivRemove.visibility = View.GONE
-
-        return chip
     }
 
     private fun createVehicleChip(binding: AddProductSheetBinding, vehicle: Vehicle): View {
@@ -985,6 +1048,8 @@ class ItemDetailFragment : Fragment() {
                 } else {
                     viewModel.removeAllVehiclesFromItem(itemId)
                 }
+
+                updateAssignedVehiclesDisplay()
 
                 itemName = name
                 categoryName = newCategoryName

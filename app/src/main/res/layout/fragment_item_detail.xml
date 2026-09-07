@@ -418,6 +418,26 @@
                         </RelativeLayout>
                     </LinearLayout>
                 </LinearLayout>
+                <!-- Assigned Vehicles -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Compatible Vehicles"
+                    android:textColor="#1B2340"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:fontFamily="@font/inter_bold" />
+
+                <TextView
+                    android:id="@+id/tv_assigned_vehicles"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="10dp"
+                    android:text="No vehicles assigned"
+                    android:textColor="#666666"
+                    android:textSize="13sp"
+                    android:fontFamily="@font/inter_regular" />
 
                 <!-- Add to Sale/Bill button -->
                 <androidx.appcompat.widget.AppCompatButton
