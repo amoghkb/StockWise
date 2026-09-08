@@ -9,9 +9,10 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.LayoutInflater
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
@@ -26,6 +27,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.AppCompatButton
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.widget.doOnTextChanged
@@ -41,11 +43,13 @@ import com.example.stockwise.data.entities.VehicleType
 import com.example.stockwise.databinding.AddProductSheetBinding
 import com.example.stockwise.ui.adapter.VehicleMultiSelectAdapter
 import com.example.stockwise.viewmodels.ProductsViewModel
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.Date
 
 @AndroidEntryPoint
 class ItemDetailFragment : Fragment() {
@@ -86,6 +90,11 @@ class ItemDetailFragment : Fragment() {
     private var vehicleAdapter: VehicleMultiSelectAdapter? = null
     private var vehicleDropdownPopup: android.widget.PopupWindow? = null
     private var currentSheetBinding: AddProductSheetBinding? = null
+
+    // Sale bottom sheet variables
+    private var saleBottomSheet: BottomSheetDialog? = null
+    private var currentQuantity = 1
+    private var currentSalePrice = 0.0
 
     private val imagePickerLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -163,6 +172,8 @@ class ItemDetailFragment : Fragment() {
         vehicleDropdownPopup?.dismiss()
         vehicleDropdownPopup = null
         currentSheetBinding = null
+        saleBottomSheet?.dismiss()
+        saleBottomSheet = null
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -177,7 +188,7 @@ class ItemDetailFragment : Fragment() {
         }
 
         btnAddToSale.setOnClickListener {
-            "Add to Sale clicked".toastSuccess(requireContext())
+            openAddToSaleBottomSheet()
         }
     }
 
@@ -236,6 +247,7 @@ class ItemDetailFragment : Fragment() {
             imgProduct.scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
     }
+
     private fun setupImageLongPress() {
         imgProduct.setOnLongClickListener {
             showFullScreenImage()
@@ -250,7 +262,6 @@ class ItemDetailFragment : Fragment() {
         val fullScreenImage = dialog.findViewById<ImageView>(R.id.iv_fullscreen_image)
         val closeButton = dialog.findViewById<ImageView>(R.id.iv_close_fullscreen)
 
-        // Load the image
         if (!imageUri.isNullOrEmpty()) {
             try {
                 val imageFile = File(imageUri)
@@ -267,18 +278,17 @@ class ItemDetailFragment : Fragment() {
             fullScreenImage.setImageResource(R.drawable.ic_image)
         }
 
-        // Close button
         closeButton.setOnClickListener {
             dialog.dismiss()
         }
 
-        // Click on image to close
         fullScreenImage.setOnClickListener {
             dialog.dismiss()
         }
 
         dialog.show()
     }
+
     private fun updateStockBadge(stock: Int) {
         if (stock < 10) {
             tvStockBadge.text = "Low Stock"
@@ -290,6 +300,169 @@ class ItemDetailFragment : Fragment() {
             tvStockBadge.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
         }
     }
+
+    // ==============================
+    // ADD TO SALE BOTTOM SHEET
+    // ==============================
+
+    private fun openAddToSaleBottomSheet() {
+        if (currentStock <= 0) {
+            "Item is out of stock!".toastError(requireContext())
+            return
+        }
+
+        val dialog = BottomSheetDialog(requireContext(), R.style.BottomSheetDialogTheme)
+        val view = LayoutInflater.from(requireContext())
+            .inflate(R.layout.bottom_sheet_add_to_sale, null)
+
+        dialog.setContentView(view)
+        dialog.show()
+        saleBottomSheet = dialog
+
+        // Initialize views
+        val tvItemName = view.findViewById<TextView>(R.id.tv_sale_item_name)
+        val tvItemPrice = view.findViewById<TextView>(R.id.tv_sale_item_price)
+        val tvQuantity = view.findViewById<TextView>(R.id.tv_quantity)
+        val tvAvailableStock = view.findViewById<TextView>(R.id.tv_available_stock)
+        val tvTotalAmount = view.findViewById<TextView>(R.id.tv_total_amount)
+        val etSalePrice = view.findViewById<EditText>(R.id.et_sale_price)
+        val btnDecrease = view.findViewById<ImageButton>(R.id.btn_decrease_quantity)
+        val btnIncrease = view.findViewById<ImageButton>(R.id.btn_increase_quantity)
+        val btnConfirm = view.findViewById<AppCompatButton>(R.id.btn_confirm_sale)
+
+        // Set initial values
+        tvItemName.text = itemName
+        tvItemPrice.text = "₹${String.format("%.2f", sellingPrice)}"
+        tvQuantity.text = "1"
+        tvAvailableStock.text = "Available: $currentStock units"
+        etSalePrice.setText(String.format("%.2f", sellingPrice))
+        currentQuantity = 1
+        currentSalePrice = sellingPrice
+
+        updateTotalAmount(tvTotalAmount)
+        updateConfirmButtonState(btnConfirm)
+
+        // Decrease quantity
+        btnDecrease.setOnClickListener {
+            if (currentQuantity > 1) {
+                currentQuantity--
+                tvQuantity.text = currentQuantity.toString()
+                updateTotalAmount(tvTotalAmount)
+                updateConfirmButtonState(btnConfirm)
+            }
+        }
+
+        // Increase quantity
+        btnIncrease.setOnClickListener {
+            if (currentQuantity < currentStock) {
+                currentQuantity++
+                tvQuantity.text = currentQuantity.toString()
+                updateTotalAmount(tvTotalAmount)
+                updateConfirmButtonState(btnConfirm)
+            } else {
+                "Cannot exceed available stock!".toastError(requireContext())
+            }
+        }
+
+        // Selling price editing with validation
+        etSalePrice.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                val priceStr = s?.toString()?.trim() ?: ""
+                currentSalePrice = if (priceStr.isNotEmpty()) {
+                    priceStr.toDoubleOrNull() ?: 0.0
+                } else {
+                    0.0
+                }
+                updateTotalAmount(tvTotalAmount)
+                updateConfirmButtonState(btnConfirm)
+            }
+        })
+
+        // Confirm sale
+        btnConfirm.setOnClickListener {
+            if (currentQuantity > 0 && currentSalePrice > 0) {
+                performSale(
+                    quantity = currentQuantity,
+                    price = currentSalePrice,
+                    dialog = dialog
+                )
+            } else {
+                "Please enter valid quantity and price".toastError(requireContext())
+            }
+        }
+
+        // Handle dialog dismiss
+        dialog.setOnDismissListener {
+            saleBottomSheet = null
+        }
+    }
+
+    private fun updateTotalAmount(tvTotalAmount: TextView) {
+        val total = currentQuantity * currentSalePrice
+        tvTotalAmount.text = "₹${String.format("%.2f", total)}"
+    }
+
+    private fun updateConfirmButtonState(btnConfirm: AppCompatButton) {
+        val isValid = currentQuantity > 0 && currentSalePrice > 0
+        btnConfirm.isEnabled = isValid
+        btnConfirm.alpha = if (isValid) 1.0f else 0.5f
+    }
+
+    private fun performSale(quantity: Int, price: Double, dialog: BottomSheetDialog) {
+        lifecycleScope.launch {
+            try {
+                // Get the current item from database
+                val item = viewModel.getItemById(itemId)
+                if (item == null) {
+                    "Item not found!".toastError(requireContext())
+                    return@launch
+                }
+
+                // Validate stock
+                if (item.stock < quantity) {
+                    "Not enough stock available!".toastError(requireContext())
+                    return@launch
+                }
+
+                // Update stock
+                val newStock = item.stock - quantity
+                val updatedItem = item.copy(
+                    stock = newStock,
+                    updatedAt = Date()
+                )
+
+                // Update item in database
+                viewModel.updateItem(updatedItem)
+
+                // Update local variables
+                currentStock = newStock
+                tvCurrentStock.text = newStock.toString()
+                updateStockBadge(newStock)
+
+                // Show success message
+                val totalAmount = quantity * price
+                val message = "Sold $quantity unit(s) for ₹${String.format("%.2f", totalAmount)}"
+                message.toastSuccess(requireContext())
+
+                // Dismiss the bottom sheet
+                dialog.dismiss()
+
+                // TODO: Add to today's sales (to be implemented later)
+                // viewModel.addToTodaySale(itemId, quantity, price, totalAmount)
+
+            } catch (e: Exception) {
+                "Failed to process sale: ${e.message}".toastError(requireContext())
+            }
+        }
+    }
+
+    // ==============================
+    // VEHICLE METHODS
+    // ==============================
 
     private fun loadVehicles() {
         lifecycleScope.launch {
@@ -317,6 +490,10 @@ class ItemDetailFragment : Fragment() {
             tvAssignedVehicles.text = vehicleNames
         }
     }
+
+    // ==============================
+    // EDIT ITEM SHEET
+    // ==============================
 
     private fun openEditItemSheet() {
         val sheet = ReusableBottomSheet.newInstance(
