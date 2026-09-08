@@ -428,6 +428,15 @@ class ItemDetailFragment : Fragment() {
                     return@launch
                 }
 
+                // RECORD THE SALE FIRST
+                viewModel.recordSale(
+                    itemId = item.id,
+                    itemName = item.name,
+                    quantity = quantity,
+                    sellingPrice = price,
+                    originalPrice = item.originalPrice
+                )
+
                 // Update stock
                 val newStock = item.stock - quantity
                 val updatedItem = item.copy(
@@ -443,23 +452,21 @@ class ItemDetailFragment : Fragment() {
                 tvCurrentStock.text = newStock.toString()
                 updateStockBadge(newStock)
 
-                // Show success message
+                // Show success message with profit info
                 val totalAmount = quantity * price
-                val message = "Sold $quantity unit(s) for ₹${String.format("%.2f", totalAmount)}"
+                val totalCost = quantity * item.originalPrice
+                val profit = totalAmount - totalCost
+                val message = "Sold $quantity unit(s) for ₹${String.format("%.2f", totalAmount)}\nProfit: ₹${String.format("%.2f", profit)}"
                 message.toastSuccess(requireContext())
 
                 // Dismiss the bottom sheet
                 dialog.dismiss()
-
-                // TODO: Add to today's sales (to be implemented later)
-                // viewModel.addToTodaySale(itemId, quantity, price, totalAmount)
 
             } catch (e: Exception) {
                 "Failed to process sale: ${e.message}".toastError(requireContext())
             }
         }
     }
-
     // ==============================
     // VEHICLE METHODS
     // ==============================

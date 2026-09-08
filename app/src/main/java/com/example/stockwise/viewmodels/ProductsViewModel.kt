@@ -9,6 +9,7 @@ import com.example.stockwise.data.entities.Vehicle
 import com.example.stockwise.data.entities.VehicleType
 import com.example.stockwise.data.repository.CategoryRepository
 import com.example.stockwise.data.repository.ItemRepository
+import com.example.stockwise.data.repository.SalesRepository
 import com.example.stockwise.data.repository.VehicleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -26,7 +27,8 @@ import javax.inject.Inject
 class ProductsViewModel @Inject constructor(
     private val categoryRepository: CategoryRepository,
     private val itemRepository: ItemRepository,
-    private val vehicleRepository: VehicleRepository
+    private val vehicleRepository: VehicleRepository,
+    private val salesRepository: SalesRepository
 ) : ViewModel() {
 
     // ===== STATE =====
@@ -288,4 +290,35 @@ class ProductsViewModel @Inject constructor(
         _categorySaveSuccess.value = false
         _itemSaveSuccess.value = false
     }
+
+    suspend fun recordSale(
+        itemId: String,
+        itemName: String,
+        quantity: Int,
+        sellingPrice: Double,
+        originalPrice: Double
+    ) {
+        try {
+            salesRepository.recordSale(
+                itemId = itemId,
+                itemName = itemName,
+                quantity = quantity,
+                sellingPrice = sellingPrice,
+                originalPrice = originalPrice
+            )
+        } catch (e: Exception) {
+            _error.value = "Failed to record sale: ${e.message}"
+        }
+    }
+
+    suspend fun getTodayStats() = salesRepository.getTodayStats()
+    suspend fun getWeeklyStats() = salesRepository.getWeeklyStats()
+    suspend fun getMonthlyStats() = salesRepository.getMonthlyStats()
+    suspend fun getTodaySalesSummary() = salesRepository.getTodaySalesSummary()
+    suspend fun getWeeklySalesSummary() = salesRepository.getWeeklySalesSummary()
+    suspend fun getMonthlySalesSummary() = salesRepository.getMonthlySalesSummary()
+    suspend fun getTopSellingItems(limit: Int = 10) = salesRepository.getTopSellingItems(limit)
+    fun getWeeklySalesBreakdown() = salesRepository.getWeeklySalesBreakdown()
+    fun getMonthlySalesBreakdown() = salesRepository.getMonthlySalesBreakdown()
+
 }
