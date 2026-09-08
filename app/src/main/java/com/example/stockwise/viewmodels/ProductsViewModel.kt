@@ -11,13 +11,21 @@ import com.example.stockwise.data.repository.CategoryRepository
 import com.example.stockwise.data.repository.ItemRepository
 import com.example.stockwise.data.repository.SalesRepository
 import com.example.stockwise.data.repository.VehicleRepository
+import com.example.stockwise.ui.model.ProductListItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.UUID
@@ -31,7 +39,7 @@ class ProductsViewModel @Inject constructor(
     private val salesRepository: SalesRepository
 ) : ViewModel() {
 
-    // ===== STATE =====
+    // ===== RAW STATE =====
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
     val categories: StateFlow<List<Category>> = _categories.asStateFlow()
@@ -60,6 +68,105 @@ class ProductsViewModel @Inject constructor(
     private val _categoryNames = MutableStateFlow<List<String>>(emptyList())
     val categoryNames: StateFlow<List<String>> = _categoryNames.asStateFlow()
 
+    // ===== SEARCH / UI STATE (drives the RecyclerView list) =====
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _expandedCategories = MutableStateFlow<Set<String>>(emptySet())
+
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun toggleCategoryExpansion(categoryId: String) {
+        _expandedCategories.value = if (_expandedCategories.value.contains(categoryId)) {
+            _expandedCategories.value - categoryId
+        } else {
+            _expandedCategories.value + categoryId
+        }
+    }
+
+    /**
+     * The single source of truth for what the RecyclerView shows.
+     * - The query is debounced 250ms so fast typing doesn't recompute per keystroke.
+     * - The actual grouping/filtering runs on Dispatchers.Default, off the main thread.
+     * - Categories are grouped once with groupBy instead of re-filtering the full
+     *   item list once per category (was O(categories * items) before).
+     */
+    @OptIn(FlowPreview::class)
+    val displayItems: StateFlow<List<ProductListItem>> = combine(
+        _categories,
+        _items,
+        _searchQuery.debounce(250L),
+        _expandedCategories
+    ) { cats, itemList, query, expanded ->
+        buildDisplayList(cats, itemList, query, expanded)
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private fun buildDisplayList(
+        categories: List<Category>,
+        items: List<ItemWithCategory>,
+        query: String,
+        expanded: Set<String>
+    ): List<ProductListItem> {
+        if (categories.isEmpty()) return listOf(ProductListItem.NoCategoriesMessage)
+
+        val trimmedQuery = query.trim()
+        val itemsByCategory = items.groupBy { it.item.categoryId }
+        val result = mutableListOf<ProductListItem>()
+        var anyCategoryShown = false
+
+        categories.forEach { category ->
+            val categoryMatches = trimmedQuery.isEmpty() ||
+                    category.name.contains(trimmedQuery, ignoreCase = true)
+
+            val itemsInCategory = itemsByCategory[category.id].orEmpty()
+
+            val itemsToShow = if (categoryMatches) {
+                itemsInCategory
+            } else {
+                itemsInCategory.filter { itemWithCategory ->
+                    val item = itemWithCategory.item
+                    item.name.contains(trimmedQuery, ignoreCase = true) ||
+                            item.id.take(8).contains(trimmedQuery, ignoreCase = true)
+                }
+            }
+
+            if (trimmedQuery.isNotEmpty() && !categoryMatches && itemsToShow.isEmpty()) {
+                return@forEach
+            }
+
+            anyCategoryShown = true
+            val isExpanded = trimmedQuery.isNotEmpty() || expanded.contains(category.id)
+
+            result.add(
+                ProductListItem.CategoryHeader(
+                    categoryId = category.id,
+                    categoryName = category.name,
+                    itemCount = itemsToShow.size,
+                    isExpanded = isExpanded
+                )
+            )
+
+            if (isExpanded) {
+                if (itemsToShow.isEmpty()) {
+                    result.add(ProductListItem.EmptyCategoryMessage(category.id))
+                } else {
+                    itemsToShow.forEach { result.add(ProductListItem.ProductRow(it)) }
+                }
+            }
+        }
+
+        if (!anyCategoryShown) {
+            return listOf(ProductListItem.NoResultsMessage(trimmedQuery))
+        }
+
+        return result
+    }
+
     // ===== LIVE COLLECTION JOBS =====
 
     private var categoriesJob: Job? = null
@@ -67,13 +174,9 @@ class ProductsViewModel @Inject constructor(
     private var vehiclesJob: Job? = null
     private var collectorsStarted = false
 
-    // ===== INIT =====
-
     init {
         loadAllData()
     }
-
-    // ===== DATA LOADING =====
 
     fun loadAllData() {
         if (collectorsStarted) return
@@ -132,13 +235,9 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
-    // ===== GET VEHICLES =====
-
     suspend fun getAllVehicles(): List<Vehicle> {
         return vehicleRepository.getAllActiveVehicles().firstOrNull() ?: emptyList()
     }
-
-    // ===== GET ASSIGNED VEHICLES FOR ITEM =====
 
     suspend fun getAssignedVehicleIdsForItem(itemId: String): List<String> {
         return try {
@@ -148,8 +247,6 @@ class ProductsViewModel @Inject constructor(
             emptyList()
         }
     }
-
-    // ===== REMOVE ALL VEHICLES FROM ITEM =====
 
     fun removeAllVehiclesFromItem(itemId: String) {
         viewModelScope.launch {
@@ -161,8 +258,6 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
-    // ===== CATEGORY OPERATIONS =====
-
     fun saveCategory(name: String, description: String?) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -172,13 +267,11 @@ class ProductsViewModel @Inject constructor(
                     _error.value = "Category name cannot be empty"
                     return@launch
                 }
-
                 val existingCategory = _categories.value.find { it.name.equals(name, ignoreCase = true) }
                 if (existingCategory != null) {
                     _error.value = "Category '$name' already exists"
                     return@launch
                 }
-
                 categoryRepository.insertCategory(name, description)
                 _categorySaveSuccess.value = true
             } catch (e: CancellationException) {
@@ -198,8 +291,6 @@ class ProductsViewModel @Inject constructor(
     fun getItemById(itemId: String): Item? {
         return _items.value.find { it.item.id == itemId }?.item
     }
-
-    // ===== ITEM OPERATIONS =====
 
     suspend fun saveItemAndGetId(
         categoryId: String,
@@ -278,14 +369,8 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
-    fun clearVehicleSaveSuccess() {
-        _vehicleSaveSuccess.value = false
-    }
-
-    fun clearError() {
-        _error.value = null
-    }
-
+    fun clearVehicleSaveSuccess() { _vehicleSaveSuccess.value = false }
+    fun clearError() { _error.value = null }
     fun clearSaveSuccess() {
         _categorySaveSuccess.value = false
         _itemSaveSuccess.value = false
@@ -320,5 +405,4 @@ class ProductsViewModel @Inject constructor(
     suspend fun getTopSellingItems(limit: Int = 10) = salesRepository.getTopSellingItems(limit)
     fun getWeeklySalesBreakdown() = salesRepository.getWeeklySalesBreakdown()
     fun getMonthlySalesBreakdown() = salesRepository.getMonthlySalesBreakdown()
-
 }
