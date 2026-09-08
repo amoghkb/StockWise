@@ -25,4 +25,15 @@
     <color name="chip_selected">#005DA7</color>
     <color name="chip_partial">#4A90D9</color>
 
+    <color name="progress_red">#F04438</color>
+    <color name="progress_orange">#FF9500</color>
+    <color name="progress_blue">#0090FE</color>
+    <color name="divider_color">#0090FE</color>
+
+    <color name="chart_high">#0090FE</color>
+    <color name="chart_medium">#4CAF50</color>
+    <color name="chart_low">#FFC107</color>
+    <color name="chart_zero">#E0E0E0</color>
+    <color name="text_secondary">#6B7280</color>
+
 </resources>

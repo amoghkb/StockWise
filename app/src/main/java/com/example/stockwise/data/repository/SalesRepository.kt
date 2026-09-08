@@ -37,7 +37,9 @@ class SalesRepository @Inject constructor(
             originalPrice = originalPrice,
             totalAmount = totalAmount,
             totalCost = totalCost,
-            profit = profit
+            profit = profit,
+            saleDate = System.currentTimeMillis(),
+            createdAt = System.currentTimeMillis()
         )
         saleDao.insertSale(sale)
     }
@@ -85,5 +87,13 @@ class SalesRepository @Inject constructor(
 
     suspend fun getSalesByItem(itemId: String): List<Sale> {
         return saleDao.getSalesByItem(itemId).firstOrNull() ?: emptyList()
+    }
+
+    suspend fun getAllSales(): List<Sale> {
+        return saleDao.getAllSales()
+    }
+
+    suspend fun getTotalSalesCount(): Int {
+        return saleDao.getTotalSalesCount()
     }
 }

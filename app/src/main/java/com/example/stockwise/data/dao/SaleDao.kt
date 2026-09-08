@@ -31,34 +31,34 @@ interface SaleDao {
 
     @Query("""
         SELECT * FROM sales 
-        WHERE DATE(saleDate) = DATE('now', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
         ORDER BY saleDate DESC
     """)
     fun getTodaySales(): Flow<List<Sale>>
 
     @Query("""
         SELECT 
-            COUNT(*) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(totalCost) as totalCost,
-            SUM(profit) as totalProfit,
+            COALESCE(COUNT(*), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(totalCost), 0) as totalCost,
+            COALESCE(SUM(profit), 0) as totalProfit,
             CASE 
-                WHEN SUM(totalAmount) > 0 
-                THEN (SUM(profit) * 100.0 / SUM(totalAmount)) 
+                WHEN COALESCE(SUM(totalAmount), 0) > 0 
+                THEN (COALESCE(SUM(profit), 0) * 100.0 / COALESCE(SUM(totalAmount), 0)) 
                 ELSE 0.0 
             END as averageProfitMargin
         FROM sales 
-        WHERE DATE(saleDate) = DATE('now', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
     """)
     suspend fun getTodaySalesSummary(): SalesSummary?
 
     @Query("""
         SELECT 
-            SUM(quantity) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
+            COALESCE(SUM(quantity), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(profit), 0) as totalProfit
         FROM sales 
-        WHERE DATE(saleDate) = DATE('now', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') = date('now', 'localtime')
     """)
     suspend fun getTodayStats(): DailySalesSummary?
 
@@ -68,82 +68,81 @@ interface SaleDao {
 
     @Query("""
         SELECT 
-            COUNT(*) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(totalCost) as totalCost,
-            SUM(profit) as totalProfit,
+            COALESCE(COUNT(*), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(totalCost), 0) as totalCost,
+            COALESCE(SUM(profit), 0) as totalProfit,
             CASE 
-                WHEN SUM(totalAmount) > 0 
-                THEN (SUM(profit) * 100.0 / SUM(totalAmount)) 
+                WHEN COALESCE(SUM(totalAmount), 0) > 0 
+                THEN (COALESCE(SUM(profit), 0) * 100.0 / COALESCE(SUM(totalAmount), 0)) 
                 ELSE 0.0 
             END as averageProfitMargin
         FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-7 days', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-7 days')
     """)
     suspend fun getWeeklySalesSummary(): SalesSummary?
 
     @Query("""
         SELECT 
-            SUM(quantity) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
+            COALESCE(SUM(quantity), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(profit), 0) as totalProfit
         FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-7 days', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-7 days')
     """)
     suspend fun getWeeklyStats(): DailySalesSummary?
 
     @Query("""
-        SELECT 
-            DATE(saleDate) as date,
-            SUM(quantity) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
-        FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-7 days', 'localtime')
-        GROUP BY DATE(saleDate)
-        ORDER BY date ASC
-    """)
+    SELECT 
+        date(saleDate / 1000, 'unixepoch', 'localtime') as date,
+        COALESCE(SUM(quantity), 0) as totalItemsSold,
+        COALESCE(SUM(totalAmount), 0) as totalAmount,
+        COALESCE(SUM(profit), 0) as totalProfit
+    FROM sales 
+    WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-6 days')
+    GROUP BY date(saleDate / 1000, 'unixepoch', 'localtime')
+    ORDER BY date ASC
+""")
     fun getWeeklySalesBreakdown(): Flow<List<DailySalesSummary>>
-
     // ==============================
     // MONTHLY SALES (Last 30 days)
     // ==============================
 
     @Query("""
         SELECT 
-            COUNT(*) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(totalCost) as totalCost,
-            SUM(profit) as totalProfit,
+            COALESCE(COUNT(*), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(totalCost), 0) as totalCost,
+            COALESCE(SUM(profit), 0) as totalProfit,
             CASE 
-                WHEN SUM(totalAmount) > 0 
-                THEN (SUM(profit) * 100.0 / SUM(totalAmount)) 
+                WHEN COALESCE(SUM(totalAmount), 0) > 0 
+                THEN (COALESCE(SUM(profit), 0) * 100.0 / COALESCE(SUM(totalAmount), 0)) 
                 ELSE 0.0 
             END as averageProfitMargin
         FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-30 days', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-30 days')
     """)
     suspend fun getMonthlySalesSummary(): SalesSummary?
 
     @Query("""
         SELECT 
-            SUM(quantity) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
+            COALESCE(SUM(quantity), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(profit), 0) as totalProfit
         FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-30 days', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-30 days')
     """)
     suspend fun getMonthlyStats(): DailySalesSummary?
 
     @Query("""
         SELECT 
-            DATE(saleDate) as date,
-            SUM(quantity) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
+            date(saleDate / 1000, 'unixepoch', 'localtime') as date,
+            COALESCE(SUM(quantity), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(profit), 0) as totalProfit
         FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-30 days', 'localtime')
-        GROUP BY DATE(saleDate)
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-30 days')
+        GROUP BY date(saleDate / 1000, 'unixepoch', 'localtime')
         ORDER BY date ASC
     """)
     fun getMonthlySalesBreakdown(): Flow<List<DailySalesSummary>>
@@ -156,11 +155,11 @@ interface SaleDao {
         SELECT 
             itemId,
             itemName,
-            SUM(quantity) as totalQuantity,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
+            COALESCE(SUM(quantity), 0) as totalQuantity,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(profit), 0) as totalProfit
         FROM sales 
-        WHERE DATE(saleDate) >= DATE('now', '-30 days', 'localtime')
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date('now', 'localtime', '-30 days')
         GROUP BY itemId, itemName
         ORDER BY totalQuantity DESC
         LIMIT :limit
@@ -173,37 +172,45 @@ interface SaleDao {
 
     @Query("""
         SELECT 
-            COUNT(*) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(totalCost) as totalCost,
-            SUM(profit) as totalProfit,
+            COALESCE(COUNT(*), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(totalCost), 0) as totalCost,
+            COALESCE(SUM(profit), 0) as totalProfit,
             CASE 
-                WHEN SUM(totalAmount) > 0 
-                THEN (SUM(profit) * 100.0 / SUM(totalAmount)) 
+                WHEN COALESCE(SUM(totalAmount), 0) > 0 
+                THEN (COALESCE(SUM(profit), 0) * 100.0 / COALESCE(SUM(totalAmount), 0)) 
                 ELSE 0.0 
             END as averageProfitMargin
         FROM sales 
-        WHERE DATE(saleDate) >= DATE(:startDate) AND DATE(saleDate) <= DATE(:endDate)
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date(:startDate, 'localtime') 
+        AND date(saleDate / 1000, 'unixepoch', 'localtime') <= date(:endDate, 'localtime')
     """)
     suspend fun getSalesSummaryForDateRange(startDate: String, endDate: String): SalesSummary?
 
     @Query("""
         SELECT 
-            DATE(saleDate) as date,
-            SUM(quantity) as totalItemsSold,
-            SUM(totalAmount) as totalAmount,
-            SUM(profit) as totalProfit
+            date(saleDate / 1000, 'unixepoch', 'localtime') as date,
+            COALESCE(SUM(quantity), 0) as totalItemsSold,
+            COALESCE(SUM(totalAmount), 0) as totalAmount,
+            COALESCE(SUM(profit), 0) as totalProfit
         FROM sales 
-        WHERE DATE(saleDate) >= DATE(:startDate) AND DATE(saleDate) <= DATE(:endDate)
-        GROUP BY DATE(saleDate)
+        WHERE date(saleDate / 1000, 'unixepoch', 'localtime') >= date(:startDate, 'localtime') 
+        AND date(saleDate / 1000, 'unixepoch', 'localtime') <= date(:endDate, 'localtime')
+        GROUP BY date(saleDate / 1000, 'unixepoch', 'localtime')
         ORDER BY date ASC
     """)
     fun getSalesBreakdownForDateRange(startDate: String, endDate: String): Flow<List<DailySalesSummary>>
 
     // ==============================
-    // CLEANUP
+    // HELPER METHODS
     // ==============================
 
-    @Query("DELETE FROM sales WHERE DATE(saleDate) < DATE('now', '-1 year')")
+    @Query("SELECT * FROM sales ORDER BY saleDate DESC")
+    suspend fun getAllSales(): List<Sale>
+
+    @Query("DELETE FROM sales WHERE date(saleDate / 1000, 'unixepoch', 'localtime') < date('now', 'localtime', '-1 year')")
     suspend fun deleteOldSales()
+
+    @Query("SELECT COUNT(*) FROM sales")
+    suspend fun getTotalSalesCount(): Int
 }

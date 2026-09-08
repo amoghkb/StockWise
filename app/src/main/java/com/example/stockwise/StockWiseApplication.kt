@@ -1,11 +1,10 @@
 package com.example.stockwise
 
-
 import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class Application : Application() {
+class StockWiseApplication : Application() {
     override fun onCreate() {
         super.onCreate()
     }
