@@ -15,6 +15,7 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
@@ -32,6 +33,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.example.stockwise.R
@@ -43,6 +46,7 @@ import com.example.stockwise.data.entities.VehicleType
 import com.example.stockwise.databinding.AddProductSheetBinding
 import com.example.stockwise.ui.adapter.VehicleMultiSelectAdapter
 import com.example.stockwise.viewmodels.ProductsViewModel
+import com.example.stockwise.viewmodels.SharedDataViewModel
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -70,6 +74,7 @@ class ItemDetailFragment : Fragment() {
     private lateinit var tvAssignedVehicles: TextView
 
     private lateinit var viewModel: ProductsViewModel
+    private val sharedViewModel: SharedDataViewModel by activityViewModels()
 
     private var itemId: String = ""
     private var itemName: String = ""
@@ -319,7 +324,6 @@ class ItemDetailFragment : Fragment() {
         dialog.show()
         saleBottomSheet = dialog
 
-        // Initialize views
         val tvItemName = view.findViewById<TextView>(R.id.tv_sale_item_name)
         val tvItemPrice = view.findViewById<TextView>(R.id.tv_sale_item_price)
         val tvQuantity = view.findViewById<TextView>(R.id.tv_quantity)
@@ -330,7 +334,6 @@ class ItemDetailFragment : Fragment() {
         val btnIncrease = view.findViewById<ImageButton>(R.id.btn_increase_quantity)
         val btnConfirm = view.findViewById<AppCompatButton>(R.id.btn_confirm_sale)
 
-        // Set initial values
         tvItemName.text = itemName
         tvItemPrice.text = "₹${String.format("%.2f", sellingPrice)}"
         tvQuantity.text = "1"
@@ -342,7 +345,6 @@ class ItemDetailFragment : Fragment() {
         updateTotalAmount(tvTotalAmount)
         updateConfirmButtonState(btnConfirm)
 
-        // Decrease quantity
         btnDecrease.setOnClickListener {
             if (currentQuantity > 1) {
                 currentQuantity--
@@ -352,7 +354,6 @@ class ItemDetailFragment : Fragment() {
             }
         }
 
-        // Increase quantity
         btnIncrease.setOnClickListener {
             if (currentQuantity < currentStock) {
                 currentQuantity++
@@ -364,12 +365,9 @@ class ItemDetailFragment : Fragment() {
             }
         }
 
-        // Selling price editing with validation
         etSalePrice.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
             override fun afterTextChanged(s: Editable?) {
                 val priceStr = s?.toString()?.trim() ?: ""
                 currentSalePrice = if (priceStr.isNotEmpty()) {
@@ -382,7 +380,6 @@ class ItemDetailFragment : Fragment() {
             }
         })
 
-        // Confirm sale
         btnConfirm.setOnClickListener {
             if (currentQuantity > 0 && currentSalePrice > 0) {
                 performSale(
@@ -395,7 +392,6 @@ class ItemDetailFragment : Fragment() {
             }
         }
 
-        // Handle dialog dismiss
         dialog.setOnDismissListener {
             saleBottomSheet = null
         }
@@ -415,20 +411,17 @@ class ItemDetailFragment : Fragment() {
     private fun performSale(quantity: Int, price: Double, dialog: BottomSheetDialog) {
         lifecycleScope.launch {
             try {
-                // Get the current item from database
                 val item = viewModel.getItemById(itemId)
                 if (item == null) {
                     "Item not found!".toastError(requireContext())
                     return@launch
                 }
 
-                // Validate stock
                 if (item.stock < quantity) {
                     "Not enough stock available!".toastError(requireContext())
                     return@launch
                 }
 
-                // RECORD THE SALE FIRST
                 viewModel.recordSale(
                     itemId = item.id,
                     itemName = item.name,
@@ -437,29 +430,26 @@ class ItemDetailFragment : Fragment() {
                     originalPrice = item.originalPrice
                 )
 
-                // Update stock
                 val newStock = item.stock - quantity
                 val updatedItem = item.copy(
                     stock = newStock,
                     updatedAt = Date()
                 )
 
-                // Update item in database
                 viewModel.updateItem(updatedItem)
 
-                // Update local variables
                 currentStock = newStock
                 tvCurrentStock.text = newStock.toString()
                 updateStockBadge(newStock)
 
-                // Show success message with profit info
+                sharedViewModel.refreshDashboardData()
+
                 val totalAmount = quantity * price
                 val totalCost = quantity * item.originalPrice
                 val profit = totalAmount - totalCost
                 val message = "Sold $quantity unit(s) for ₹${String.format("%.2f", totalAmount)}\nProfit: ₹${String.format("%.2f", profit)}"
                 message.toastSuccess(requireContext())
 
-                // Dismiss the bottom sheet
                 dialog.dismiss()
 
             } catch (e: Exception) {
@@ -467,6 +457,7 @@ class ItemDetailFragment : Fragment() {
             }
         }
     }
+
     // ==============================
     // VEHICLE METHODS
     // ==============================
@@ -768,6 +759,96 @@ class ItemDetailFragment : Fragment() {
     }
 
     // ==============================
+    // CLEAR BUTTON HELPERS (for vehicle search popup)
+    // ==============================
+
+    private fun showClearButtonWithFade(view: View) {
+        if (view.visibility == View.VISIBLE && view.alpha == 1f) return
+
+        view.visibility = View.VISIBLE
+        view.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideClearButtonWithFade(view: View) {
+        if (view.visibility != View.VISIBLE) return
+
+        view.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction {
+                view.visibility = View.GONE
+            }
+            .start()
+    }
+
+    private fun animateClearTap(view: View) {
+        view.animate()
+            .scaleX(0.7f)
+            .scaleY(0.7f)
+            .setDuration(100)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(100)
+                    .start()
+            }
+            .start()
+    }
+
+    private fun handleClearTouch(view: View, event: android.view.MotionEvent): Boolean {
+        when (event.action) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                view.animate().scaleX(0.85f).scaleY(0.85f).setDuration(50).start()
+            }
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                view.animate().scaleX(1f).scaleY(1f).setDuration(50).start()
+            }
+        }
+        return false
+    }
+
+    private fun setupVehiclePopupClearButton(searchEditText: EditText, clearButton: ImageView) {
+        clearButton.alpha = 0f
+        clearButton.visibility = View.GONE
+
+        if (!searchEditText.text.isNullOrEmpty()) {
+            showClearButtonWithFade(clearButton)
+        }
+
+        searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) {
+                    hideClearButtonWithFade(clearButton)
+                } else {
+                    showClearButtonWithFade(clearButton)
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        clearButton.setOnClickListener {
+            animateClearTap(clearButton)
+            searchEditText.text?.clear()
+            val parent = searchEditText.parent as? ViewGroup
+            val tvEmptyState = parent?.findViewById<TextView>(R.id.tvEmptyState)
+            // This will now sort the vehicles with selected ones on top
+            filterVehicles("", tvEmptyState)
+            hideClearButtonWithFade(clearButton)
+        }
+
+        clearButton.setOnTouchListener { _, event -> handleClearTouch(clearButton, event) }
+    }
+
+    // ==============================
     // VEHICLE MULTI-SELECT DROPDOWN WITH TYPE CHIPS
     // ==============================
 
@@ -806,6 +887,10 @@ class ItemDetailFragment : Fragment() {
         val btnConfirm = popupView.findViewById<TextView>(R.id.btnConfirm)
         val tvEmptyState = popupView.findViewById<TextView>(R.id.tvEmptyState)
         val typeChipsContainer = popupView.findViewById<LinearLayout>(R.id.vehicleTypeChipsContainer)
+        val ivClearSearch = popupView.findViewById<ImageView>(R.id.ivClearVehicleSearch)
+
+        // Wire up the clear ("X") button for vehicle search
+        setupVehiclePopupClearButton(searchEditText, ivClearSearch)
 
         filteredVehicles.clear()
         filteredVehicles.addAll(allVehicles)
@@ -1005,11 +1090,28 @@ class ItemDetailFragment : Fragment() {
         tvName.text = name
 
         chip.setOnClickListener {
+            val isAllChip = type == null
             toggleChip(type)
             vehicleAdapter?.updateSelection(selectedVehicles)
             updateVehicleSelectionUI(tvSelectedCount)
             updateTypeChipSelectionStates(container)
-            filterVehicles(searchEditText.text.toString(), tvEmptyState)
+
+            val currentQuery = searchEditText.text.toString()
+
+            // If "All" chip is selected, show without sorting (original order)
+            // If a specific type is selected, sort with selected vehicles on top
+            if (isAllChip) {
+                // Show all vehicles in original order when "All" is selected
+                val filtered = allVehicles.filter { vehicle ->
+                    currentQuery.isEmpty() ||
+                            vehicle.name.contains(currentQuery, ignoreCase = true) ||
+                            (vehicle.company?.contains(currentQuery, ignoreCase = true) == true) ||
+                            (vehicle.model?.contains(currentQuery, ignoreCase = true) == true)
+                }
+                vehicleAdapter?.updateList(filtered)
+            } else {
+                filterVehicles(currentQuery, tvEmptyState)
+            }
         }
 
         return chip
@@ -1048,17 +1150,26 @@ class ItemDetailFragment : Fragment() {
         }
     }
 
-    private fun filterVehicles(query: String, tvEmptyState: TextView) {
+    private fun filterVehicles(query: String, tvEmptyState: TextView?) {
+        // First, filter vehicles based on search query
         val filtered = allVehicles.filter { vehicle ->
             query.isEmpty() ||
                     vehicle.name.contains(query, ignoreCase = true) ||
                     (vehicle.company?.contains(query, ignoreCase = true) == true) ||
                     (vehicle.model?.contains(query, ignoreCase = true) == true)
         }
-        vehicleAdapter?.updateList(filtered)
-        tvEmptyState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
-    }
 
+        // Then, sort the filtered list: selected vehicles first, then unselected
+        val sortedFiltered = filtered.sortedWith(compareByDescending<Vehicle> {
+            selectedVehicles.contains(it)
+        }.thenBy { it.name })
+
+        // Update the adapter with sorted list
+        vehicleAdapter?.updateList(sortedFiltered)
+
+        // Show/hide empty state
+        tvEmptyState?.visibility = if (sortedFiltered.isEmpty()) View.VISIBLE else View.GONE
+    }
     private fun updateVehicleSelectionUI(tvSelectedCount: TextView?) {
         val count = selectedVehicles.size
         tvSelectedCount?.text = "$count vehicle${if (count != 1) "s" else ""} selected"
@@ -1074,6 +1185,7 @@ class ItemDetailFragment : Fragment() {
         }
     }
 
+    // Shows ALL selected vehicles as chips (scrollable row) — no "+N more" truncation
     private fun updateVehicleChips(binding: AddProductSheetBinding) {
         if (selectedVehicles.isEmpty()) {
             binding.selectedVehiclesContainer.visibility = View.GONE
@@ -1083,24 +1195,8 @@ class ItemDetailFragment : Fragment() {
             val chipsContainer = binding.vehicleChipsContainer
             chipsContainer.removeAllViews()
 
-            val maxDisplay = 4
-            val displayVehicles = selectedVehicles.take(maxDisplay)
-
-            displayVehicles.forEach { vehicle ->
+            selectedVehicles.forEach { vehicle ->
                 val chip = createVehicleChip(binding, vehicle)
-                chipsContainer.addView(chip)
-            }
-
-            if (selectedVehicles.size > maxDisplay) {
-                val chip = LayoutInflater.from(requireContext())
-                    .inflate(R.layout.item_vehicle_chip, binding.vehicleChipsContainer, false) as LinearLayout
-
-                val tvChipName: TextView = chip.findViewById(R.id.tvChipName)
-                val ivRemove: ImageView = chip.findViewById(R.id.ivRemoveVehicle)
-
-                tvChipName.text = "+${selectedVehicles.size - maxDisplay} more"
-                ivRemove.visibility = View.GONE
-
                 chipsContainer.addView(chip)
             }
         }
@@ -1252,6 +1348,8 @@ class ItemDetailFragment : Fragment() {
                 tvSellingPrice.text = "₹${String.format("%.2f", sellingPrice)}"
                 updateStockBadge(currentStock)
                 loadProductImage()
+
+                sharedViewModel.refreshDashboardData()
 
                 "Item updated successfully!".toastSuccess(requireContext())
                 sheet.dismiss()

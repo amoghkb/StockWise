@@ -1,9 +1,8 @@
 package com.example.stockwise.viewmodels
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.stockwise.R
 import com.example.stockwise.data.entities.DailySalesSummary
 import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
 import com.example.stockwise.data.repository.ItemRepository
@@ -21,18 +20,12 @@ import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
-class DashboardViewModel @Inject constructor(
+class SharedDataViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
-    private val salesRepository: SalesRepository,
-    private val application: Application
-) : AndroidViewModel(application) {
+    private val salesRepository: SalesRepository
+) : ViewModel() {
 
-    // State for greeting and date
-    private val _greeting = MutableStateFlow("")
-    val greeting: StateFlow<String> = _greeting.asStateFlow()
-
-    private val _currentDate = MutableStateFlow("")
-    val currentDate: StateFlow<String> = _currentDate.asStateFlow()
+    // ===== DASHBOARD DATA =====
 
     // Today's Sales
     private val _todaySales = MutableStateFlow("₹0")
@@ -50,9 +43,16 @@ class DashboardViewModel @Inject constructor(
     private val _lowStockItems = MutableStateFlow<List<ItemWithCategoryAndVehicles>>(emptyList())
     val lowStockItems: StateFlow<List<ItemWithCategoryAndVehicles>> = _lowStockItems.asStateFlow()
 
-    // ===== NEW: Weekly Sales Data for Bar Chart =====
+    // Weekly Sales Data for Bar Chart
     private val _weeklySalesData = MutableStateFlow<List<DailySalesSummary>>(emptyList())
     val weeklySalesData: StateFlow<List<DailySalesSummary>> = _weeklySalesData.asStateFlow()
+
+    // Greeting and Date
+    private val _greeting = MutableStateFlow("")
+    val greeting: StateFlow<String> = _greeting.asStateFlow()
+
+    private val _currentDate = MutableStateFlow("")
+    val currentDate: StateFlow<String> = _currentDate.asStateFlow()
 
     // Loading state
     private val _isLoading = MutableStateFlow(false)
@@ -62,9 +62,13 @@ class DashboardViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Last refresh timestamp (for debugging)
+    private val _lastRefreshTime = MutableStateFlow<Long>(0)
+    val lastRefreshTime: StateFlow<Long> = _lastRefreshTime.asStateFlow()
+
     init {
         setupGreetingAndDate()
-        loadDashboardData()
+        refreshDashboardData()
     }
 
     private fun setupGreetingAndDate() {
@@ -83,7 +87,11 @@ class DashboardViewModel @Inject constructor(
         _currentDate.value = dateFormat.format(Date())
     }
 
-    fun loadDashboardData() {
+    /**
+     * Refresh all dashboard data
+     * This can be called from any fragment when data changes
+     */
+    fun refreshDashboardData() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -93,7 +101,8 @@ class DashboardViewModel @Inject constructor(
                 loadStockAlerts()
                 loadTotalItems()
                 loadLowStockItems()
-                loadWeeklySalesData() // <-- NEW: Load weekly data
+                loadWeeklySalesData()
+                _lastRefreshTime.value = System.currentTimeMillis()
             } catch (e: Exception) {
                 _error.value = e.message ?: "Error loading dashboard data"
                 e.printStackTrace()
@@ -145,64 +154,34 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    // ===== NEW: Load weekly sales data for chart =====
     private suspend fun loadWeeklySalesData() {
         try {
             val weeklyData = salesRepository.getWeeklySalesBreakdown().first()
-
-            // DEBUG: Print raw data
-            android.util.Log.d("DashboardVM", "=== RAW WEEKLY DATA ===")
-            android.util.Log.d("DashboardVM", "Total records: ${weeklyData.size}")
-            weeklyData.forEachIndexed { index, day ->
-                android.util.Log.d("DashboardVM",
-                    "Record $index: Date='${day.date}', Amount=₹${day.totalAmount}, Items=${day.totalItemsSold}"
-                )
-            }
-
             val filledData = fillMissingWeekDays(weeklyData)
-
-            // DEBUG: Print filled data
-            android.util.Log.d("DashboardVM", "=== FILLED DATA ===")
-            filledData.forEachIndexed { index, day ->
-                android.util.Log.d("DashboardVM",
-                    "Day $index: ${day.date}, Amount=₹${day.totalAmount}"
-                )
-            }
-
             _weeklySalesData.value = filledData
         } catch (e: Exception) {
-            android.util.Log.e("DashboardVM", "Error loading weekly sales", e)
             _weeklySalesData.value = emptyList()
             e.printStackTrace()
         }
     }
-    // Helper to fill missing days with zero values
+
     private fun fillMissingWeekDays(data: List<DailySalesSummary>): List<DailySalesSummary> {
         val result = mutableListOf<DailySalesSummary>()
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val dayFormat = SimpleDateFormat("EEE", Locale.US) // "Mon", "Tue", etc.
+        val dayFormat = SimpleDateFormat("EEE", Locale.US)
 
-        // Create a map of date to sales amount
-        // The date from database is already in "yyyy-MM-dd" format
         val dataMap = data.associateBy { it.date ?: "" }
 
-        android.util.Log.d("DashboardVM", "DataMap keys: ${dataMap.keys}")
-
-        // Get the last 7 days (including today)
         for (i in 6 downTo 0) {
             val calendar = Calendar.getInstance()
             calendar.add(Calendar.DAY_OF_MONTH, -i)
             val date = calendar.time
 
             val dateStr = dateFormat.format(date)
-            val dayName = dayFormat.format(date) // This gives "Mon", "Tue", etc.
+            val dayName = dayFormat.format(date)
 
             val existingData = dataMap[dateStr]
             val amount = existingData?.totalAmount ?: 0.0
-
-            android.util.Log.d("DashboardVM",
-                "Day $i: dateStr=$dateStr, dayName=$dayName, amount=₹$amount"
-            )
 
             result.add(
                 DailySalesSummary(
@@ -215,10 +194,10 @@ class DashboardViewModel @Inject constructor(
         }
         return result
     }
-    fun refreshData() {
-        loadDashboardData()
-    }
 
+    /**
+     * Get stock progress for an item (0-100%)
+     */
     fun getStockProgress(item: ItemWithCategoryAndVehicles): Int {
         val currentStock = item.item.stock
         if (currentStock <= 0) return 0
@@ -227,12 +206,22 @@ class DashboardViewModel @Inject constructor(
         return progress.coerceIn(0, 100)
     }
 
+    /**
+     * Get stock progress color based on stock level
+     */
     fun getStockProgressColor(item: ItemWithCategoryAndVehicles): Int {
         val stock = item.item.stock
         return when {
-            stock <= 3 -> R.color.progress_red
-            stock <= 5 -> R.color.progress_orange
-            else -> R.color.progress_blue
+            stock <= 3 -> com.example.stockwise.R.color.progress_red
+            stock <= 5 -> com.example.stockwise.R.color.progress_orange
+            else -> com.example.stockwise.R.color.progress_blue
         }
+    }
+
+    /**
+     * Force refresh data (useful after sales or item updates)
+     */
+    fun forceRefresh() {
+        refreshDashboardData()
     }
 }

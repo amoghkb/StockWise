@@ -54,20 +54,42 @@
         android:paddingBottom="8dp"
         android:background="@color/white">
 
-        <EditText
-            android:id="@+id/etSearchVehicle"
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Search vehicles..."
-            android:inputType="text"
-            android:padding="12dp"
-            android:background="@drawable/rounded_edittext_bg"
-            android:textSize="14sp"
-            android:fontFamily="@font/inter_regular"
-            android:drawableStart="@drawable/ic_search"
-            android:drawablePadding="10dp" />
-    </LinearLayout>
+            android:layout_height="wrap_content">
 
+            <EditText
+                android:id="@+id/etSearchVehicle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Search vehicles..."
+                android:inputType="text"
+                android:padding="12dp"
+                android:paddingEnd="40dp"
+                android:background="@drawable/rounded_edittext_bg"
+                android:textSize="14sp"
+                android:fontFamily="@font/inter_regular"
+                android:drawableStart="@drawable/ic_search"
+                android:drawablePadding="10dp" />
+
+            <!-- Cross Icon - inside the EditText -->
+            <ImageView
+                android:id="@+id/ivClearVehicleSearch"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="12dp"
+                android:src="@drawable/ic_cross"
+                android:contentDescription="Clear search"
+                android:visibility="gone"
+                android:alpha="0.0"
+                android:tint="#999999"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </RelativeLayout>
+    </LinearLayout>
     <!-- Vehicle Type Filter Chips - BELOW SEARCH -->
     <HorizontalScrollView
         android:layout_width="match_parent"

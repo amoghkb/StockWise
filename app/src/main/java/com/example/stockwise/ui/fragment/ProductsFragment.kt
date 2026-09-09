@@ -8,9 +8,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,9 +25,9 @@ import androidx.core.content.FileProvider
 import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.bumptech.glide.Glide
 import com.example.stockwise.R
 import com.example.stockwise.commons.ReusableBottomSheet
 import com.example.stockwise.commons.toastError
@@ -36,6 +40,7 @@ import com.example.stockwise.databinding.FragmentProductsBinding
 import com.example.stockwise.ui.adapter.ProductsAdapter
 import com.example.stockwise.ui.adapter.VehicleMultiSelectAdapter
 import com.example.stockwise.viewmodels.ProductsViewModel
+import com.example.stockwise.viewmodels.SharedDataViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.io.File
@@ -48,9 +53,8 @@ class ProductsFragment : Fragment() {
     private var _binding: FragmentProductsBinding? = null
     private val binding get() = _binding!!
 
-    // Hilt-scoped to this Fragment. Combined with the MainActivity change below,
-    // this instance (and its cached data) now survives tab switches.
     private val viewModel: ProductsViewModel by viewModels()
+    private val sharedViewModel: SharedDataViewModel by activityViewModels()
 
     private lateinit var productsAdapter: ProductsAdapter
 
@@ -151,18 +155,191 @@ class ProductsFragment : Fragment() {
         }
     }
 
+    // ==============================
+    // MAIN SEARCH WITH CLEAR BUTTON
+    // ==============================
+
     private fun setupSearch() {
-        // Restore whatever query the ViewModel already has (survives tab switches).
+        val etSearch = binding.etSearchProducts
+        val ivClear = binding.ivClearSearch
+
+        ivClear.alpha = 0f
+        ivClear.visibility = View.GONE
+
         val currentQuery = viewModel.searchQuery.value
         if (currentQuery.isNotEmpty()) {
-            binding.etSearchProducts.setText(currentQuery)
+            etSearch.setText(currentQuery)
+            showClearButtonWithFade(ivClear)
         }
-        binding.etSearchProducts.doOnTextChanged { text, _, _, _ ->
-            // Just forwards the raw text — debouncing + filtering happens in the
-            // ViewModel off the main thread, so this listener is now cheap.
-            viewModel.onSearchQueryChanged(text?.toString().orEmpty())
+
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) {
+                    hideClearButtonWithFade(ivClear)
+                } else {
+                    showClearButtonWithFade(ivClear)
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {
+                viewModel.onSearchQueryChanged(s?.toString().orEmpty())
+            }
+        })
+
+        ivClear.setOnClickListener {
+            animateClearTap(ivClear)
+            etSearch.text?.clear()
+            viewModel.onSearchQueryChanged("")
+            hideClearButtonWithFade(ivClear)
+            hideKeyboard()
         }
+
+        ivClear.setOnTouchListener { _, event -> handleClearTouch(ivClear, event) }
     }
+
+    // ==============================
+    // SHARED CLEAR BUTTON HELPERS
+    // ==============================
+
+    private fun showClearButtonWithFade(view: View) {
+        if (view.visibility == View.VISIBLE && view.alpha == 1f) return
+
+        view.visibility = View.VISIBLE
+        view.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideClearButtonWithFade(view: View) {
+        if (view.visibility != View.VISIBLE) return
+
+        view.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction {
+                view.visibility = View.GONE
+            }
+            .start()
+    }
+
+    private fun animateClearTap(view: View) {
+        view.animate()
+            .scaleX(0.7f)
+            .scaleY(0.7f)
+            .setDuration(100)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(100)
+                    .start()
+            }
+            .start()
+    }
+
+    private fun handleClearTouch(view: View, event: android.view.MotionEvent): Boolean {
+        when (event.action) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                view.animate().scaleX(0.85f).scaleY(0.85f).setDuration(50).start()
+            }
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                view.animate().scaleX(1f).scaleY(1f).setDuration(50).start()
+            }
+        }
+        return false
+    }
+
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
+    }
+
+    private fun hideKeyboard(binding: AddProductSheetBinding) {
+        val imm = requireContext().getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
+    }
+
+    // ==============================
+    // POPUP CLEAR BUTTON HELPERS
+    // ==============================
+
+    private fun setupVehiclePopupClearButton(searchEditText: EditText, clearButton: ImageView) {
+        clearButton.alpha = 0f
+        clearButton.visibility = View.GONE
+
+        if (!searchEditText.text.isNullOrEmpty()) {
+            showClearButtonWithFade(clearButton)
+        }
+
+        searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) {
+                    hideClearButtonWithFade(clearButton)
+                } else {
+                    showClearButtonWithFade(clearButton)
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        clearButton.setOnClickListener {
+            animateClearTap(clearButton)
+            searchEditText.text?.clear()
+            val parent = searchEditText.parent as? ViewGroup
+            val tvEmptyState = parent?.findViewById<TextView>(R.id.tvEmptyState)
+            // This will now sort the vehicles with selected ones on top
+            filterVehicles("", tvEmptyState)
+            hideClearButtonWithFade(clearButton)
+        }
+        clearButton.setOnTouchListener { _, event -> handleClearTouch(clearButton, event) }
+    }
+
+    private fun setupCategoryPopupClearButton(searchEditText: EditText, clearButton: ImageView) {
+        clearButton.alpha = 0f
+        clearButton.visibility = View.GONE
+
+        if (!searchEditText.text.isNullOrEmpty()) {
+            showClearButtonWithFade(clearButton)
+        }
+
+        searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) {
+                    hideClearButtonWithFade(clearButton)
+                } else {
+                    showClearButtonWithFade(clearButton)
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        clearButton.setOnClickListener {
+            animateClearTap(clearButton)
+            searchEditText.text?.clear()
+            val parent = searchEditText.parent as? ViewGroup
+            val listView = parent?.findViewById<ListView>(R.id.lvCategories)
+            val adapter = listView?.adapter as? ArrayAdapter<String>
+            adapter?.let { filterBottomSheetCategories("", it) }
+            hideClearButtonWithFade(clearButton)
+        }
+
+        clearButton.setOnTouchListener { _, event -> handleClearTouch(clearButton, event) }
+    }
+
+    // ==============================
+    // VIEW MODEL OBSERVERS
+    // ==============================
 
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -209,7 +386,7 @@ class ProductsFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collect { isLoading ->
+            viewModel.isLoading.collect { _ ->
                 // Show/hide loading indicator
             }
         }
@@ -249,7 +426,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // IMAGE PICKER FUNCTIONS  (unchanged)
+    // IMAGE PICKER FUNCTIONS
     // ==============================
 
     private fun openImagePicker() {
@@ -434,7 +611,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // BOTTOM SHEET  (unchanged from your version)
+    // BOTTOM SHEET
     // ==============================
 
     private fun openAddProductSheet() {
@@ -471,6 +648,7 @@ class ProductsFragment : Fragment() {
                 filteredVehicles.clear()
                 filteredVehicles.addAll(allVehicles)
                 updateVehicleChips()
+                updateVehicleEditText()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -594,11 +772,6 @@ class ProductsFragment : Fragment() {
         binding.etVehicleType.clearFocus()
     }
 
-    private fun hideKeyboard(binding: AddProductSheetBinding) {
-        val imm = requireContext().getSystemService(Activity.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-        imm.hideSoftInputFromWindow(binding.root.windowToken, 0)
-    }
-
     private fun clearCategoryForm(binding: AddProductSheetBinding) {
         binding.etCategoryName.text?.clear()
         binding.etCategoryDescription.text?.clear()
@@ -632,7 +805,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // VEHICLE MULTI-SELECT DROPDOWN  (unchanged)
+    // VEHICLE MULTI-SELECT DROPDOWN
     // ==============================
 
     private fun setupVehicleMultiSelectDropdown(binding: AddProductSheetBinding) {
@@ -670,6 +843,10 @@ class ProductsFragment : Fragment() {
         val btnConfirm = popupView.findViewById<TextView>(R.id.btnConfirm)
         val tvEmptyState = popupView.findViewById<TextView>(R.id.tvEmptyState)
         val typeChipsContainer = popupView.findViewById<LinearLayout>(R.id.vehicleTypeChipsContainer)
+        val ivClearSearch = popupView.findViewById<ImageView>(R.id.ivClearVehicleSearch)
+
+        // Setup clear button for vehicle search
+        setupVehiclePopupClearButton(searchEditText, ivClearSearch)
 
         filteredVehicles.clear()
         filteredVehicles.addAll(allVehicles)
@@ -829,13 +1006,29 @@ class ProductsFragment : Fragment() {
         tvName.text = name
 
         chip.setOnClickListener {
+            val isAllChip = type == null
             toggleChip(type)
             vehicleAdapter?.updateSelection(selectedVehicles)
             updateVehicleSelectionUI(tvSelectedCount)
             updateTypeChipSelectionStates(container)
-            filterVehicles(searchEditText.text.toString(), tvEmptyState)
-        }
 
+            val currentQuery = searchEditText.text.toString()
+
+            // If "All" chip is selected, show without sorting (original order)
+            // If a specific type is selected, sort with selected vehicles on top
+            if (isAllChip) {
+                // Show all vehicles in original order when "All" is selected
+                val filtered = allVehicles.filter { vehicle ->
+                    currentQuery.isEmpty() ||
+                            vehicle.name.contains(currentQuery, ignoreCase = true) ||
+                            (vehicle.company?.contains(currentQuery, ignoreCase = true) == true) ||
+                            (vehicle.model?.contains(currentQuery, ignoreCase = true) == true)
+                }
+                vehicleAdapter?.updateList(filtered)
+            } else {
+                filterVehicles(currentQuery, tvEmptyState)
+            }
+        }
         return chip
     }
 
@@ -872,17 +1065,26 @@ class ProductsFragment : Fragment() {
         }
     }
 
-    private fun filterVehicles(query: String, tvEmptyState: TextView) {
+    private fun filterVehicles(query: String, tvEmptyState: TextView?) {
+        // First, filter vehicles based on search query
         val filtered = allVehicles.filter { vehicle ->
             query.isEmpty() ||
                     vehicle.name.contains(query, ignoreCase = true) ||
                     (vehicle.company?.contains(query, ignoreCase = true) == true) ||
                     (vehicle.model?.contains(query, ignoreCase = true) == true)
         }
-        vehicleAdapter?.updateList(filtered)
-        tvEmptyState.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
-    }
 
+        // Then, sort the filtered list: selected vehicles first, then unselected
+        val sortedFiltered = filtered.sortedWith(compareByDescending<Vehicle> {
+            selectedVehicles.contains(it)
+        }.thenBy { it.name })
+
+        // Update the adapter with sorted list
+        vehicleAdapter?.updateList(sortedFiltered)
+
+        // Show/hide empty state
+        tvEmptyState?.visibility = if (sortedFiltered.isEmpty()) View.VISIBLE else View.GONE
+    }
     private fun updateVehicleSelectionUI(tvSelectedCount: TextView?) {
         val count = selectedVehicles.size
         tvSelectedCount?.text = "$count vehicle${if (count != 1) "s" else ""} selected"
@@ -933,7 +1135,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // BOTTOM SHEET CATEGORY DROPDOWN  (unchanged)
+    // BOTTOM SHEET CATEGORY DROPDOWN
     // ==============================
 
     private fun setupBottomSheetCategoryDropdown(binding: AddProductSheetBinding) {
@@ -962,6 +1164,10 @@ class ProductsFragment : Fragment() {
 
         bottomSheetSearchEditText = popupView.findViewById(R.id.etSearchCategory)
         bottomSheetListView = popupView.findViewById(R.id.lvCategories)
+        val ivClearSearch = popupView.findViewById<ImageView>(R.id.ivClearCategorySearch)
+
+        // Setup clear button for category search
+        setupCategoryPopupClearButton(bottomSheetSearchEditText!!, ivClearSearch)
 
         bottomSheetFilteredCategories = categories.toMutableList()
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, bottomSheetFilteredCategories)
@@ -1020,7 +1226,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // VEHICLE TYPE DROPDOWN  (unchanged)
+    // VEHICLE TYPE DROPDOWN
     // ==============================
 
     private fun setupVehicleTypeDropdown(binding: AddProductSheetBinding) {
@@ -1088,7 +1294,7 @@ class ProductsFragment : Fragment() {
     }
 
     // ==============================
-    // SAVE OPERATIONS  (unchanged)
+    // SAVE OPERATIONS
     // ==============================
 
     private fun saveCategory(binding: AddProductSheetBinding, sheet: ReusableBottomSheet) {
@@ -1167,6 +1373,8 @@ class ProductsFragment : Fragment() {
                 if (selectedVehicles.isNotEmpty() && itemId != null) {
                     viewModel.assignVehiclesToItem(itemId, selectedVehicles.map { it.id })
                 }
+
+                sharedViewModel.refreshDashboardData()
 
                 clearItemForm(binding)
                 bottomSheetDropdownPopup?.dismiss()

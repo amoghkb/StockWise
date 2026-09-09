@@ -16,7 +16,8 @@ import com.example.stockwise.R
 import com.example.stockwise.data.entities.DailySalesSummary
 import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
 import com.example.stockwise.databinding.FragmentDashboardBinding
-import com.example.stockwise.viewmodels.DashboardViewModel
+import androidx.fragment.app.activityViewModels
+import com.example.stockwise.viewmodels.SharedDataViewModel
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
@@ -34,8 +35,8 @@ class DashboardFragment : Fragment() {
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
 
-    // ViewModel
-    private val viewModel: DashboardViewModel by viewModels()
+    // Use SharedDataViewModel instead of DashboardViewModel
+    private val sharedViewModel: SharedDataViewModel by activityViewModels()
 
     // Animation state
     private var isSyncing = false
@@ -61,6 +62,13 @@ class DashboardFragment : Fragment() {
         observeData()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Refresh data when fragment becomes visible
+        // This ensures data is fresh when returning from other fragments
+        sharedViewModel.refreshDashboardData()
+    }
+
     private fun setupClickListeners() {
         binding.btnSync.setOnClickListener {
             if (!isSyncing) {
@@ -78,7 +86,7 @@ class DashboardFragment : Fragment() {
         binding.btnSync.isEnabled = false
         binding.btnSync.alpha = 0.7f
         startSyncAnimation()
-        viewModel.refreshData()
+        sharedViewModel.refreshDashboardData()
 
         handler.postDelayed({
             stopSync()
@@ -103,62 +111,72 @@ class DashboardFragment : Fragment() {
     }
 
     private fun observeData() {
+        // Observe greeting
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.greeting.collect { greeting ->
+            sharedViewModel.greeting.collect { greeting ->
                 binding.tvGreeting.text = greeting
             }
         }
 
+        // Observe current date
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.currentDate.collect { date ->
+            sharedViewModel.currentDate.collect { date ->
                 binding.tvDate.text = date
             }
         }
 
+        // Observe today's sales
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.todaySales.collect { sales ->
+            sharedViewModel.todaySales.collect { sales ->
                 binding.tvTodaySales.text = sales
             }
         }
 
+        // Observe stock alerts count
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.stockAlertsCount.collect { count ->
+            sharedViewModel.stockAlertsCount.collect { count ->
                 binding.tvStockAlerts.text = count
             }
         }
 
+        // Observe total items
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.totalItems.collect { total ->
+            sharedViewModel.totalItems.collect { total ->
                 binding.tvTotalItems.text = total
             }
         }
 
+        // Observe low stock items
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.lowStockItems.collect { items ->
+            sharedViewModel.lowStockItems.collect { items ->
                 populateLowStockItems(items)
             }
         }
 
+        // Observe weekly sales data
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.weeklySalesData.collect { salesData ->
+            sharedViewModel.weeklySalesData.collect { salesData ->
                 populateWeeklyBarChart(salesData)
             }
         }
 
+        // Observe loading state
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collect { isLoading ->
+            sharedViewModel.isLoading.collect { isLoading ->
                 if (!isLoading && isSyncing) {
                     stopSync()
                 }
             }
         }
 
+        // Observe error state
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.error.collect { error ->
+            sharedViewModel.error.collect { error ->
                 error?.let {
                     if (isSyncing) {
                         stopSync()
                     }
+                    // Show error toast if needed
                 }
             }
         }
@@ -193,7 +211,7 @@ class DashboardFragment : Fragment() {
             tvStockCount.text = item.item.stock.toString()
             tvStockLabel.text = "left"
 
-            val progress = viewModel.getStockProgress(item)
+            val progress = sharedViewModel.getStockProgress(item)
             progressBar.progress = progress
 
             if (index < items.size - 1) {
@@ -210,7 +228,6 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    // ===== FIXED: Populate the weekly bar chart =====
     private fun populateWeeklyBarChart(salesData: List<DailySalesSummary>) {
         val barChart = binding.chartWeeklySales
 
@@ -221,18 +238,17 @@ class DashboardFragment : Fragment() {
             return
         }
 
-        // 1. Convert data to BarEntry
+        // Convert data to BarEntry
         val entries = salesData.mapIndexed { index, day ->
             BarEntry(index.toFloat(), day.totalAmount.toFloat())
         }
 
-        // 2. Create DataSet and style it
+        // Create DataSet and style it
         val dataSet = BarDataSet(entries, "Daily Sales").apply {
             color = resources.getColor(R.color.chart_high, null)
             valueTextColor = resources.getColor(R.color.text_secondary, null)
             valueTextSize = 10f
             setDrawValues(true)
-            // FIXED: Use proper ValueFormatter
             valueFormatter = object : ValueFormatter() {
                 private val format = DecimalFormat("₹#,##0")
 
@@ -242,15 +258,15 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // 3. Prepare day labels
+        // Prepare day labels
         val days = salesData.map { it.date ?: "" }
 
-        // 4. Setup BarData
+        // Setup BarData
         val barData = BarData(dataSet).apply {
             barWidth = 0.6f
         }
 
-        // 5. Configure chart
+        // Configure chart
         barChart.apply {
             this.data = barData
             description.isEnabled = false
@@ -281,7 +297,6 @@ class DashboardFragment : Fragment() {
                 setLabelCount(5, true)
                 textSize = 10f
                 textColor = resources.getColor(R.color.text_secondary, null)
-                // FIXED: Use proper ValueFormatter
                 valueFormatter = object : ValueFormatter() {
                     private val format = DecimalFormat("₹#,##0")
 
