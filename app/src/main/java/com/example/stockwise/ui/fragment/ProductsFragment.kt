@@ -28,6 +28,8 @@ import androidx.fragment.app.viewModels
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.example.stockwise.R
 import com.example.stockwise.commons.ReusableBottomSheet
 import com.example.stockwise.commons.toastError
@@ -57,6 +59,8 @@ class ProductsFragment : Fragment() {
     private val sharedViewModel: SharedDataViewModel by activityViewModels()
 
     private lateinit var productsAdapter: ProductsAdapter
+
+    private var isFirstLoad = true
 
     private var selectedImageUri: Uri? = null
     private var currentSheetBinding: AddProductSheetBinding? = null
@@ -545,8 +549,20 @@ class ProductsFragment : Fragment() {
         currentSheetBinding?.let { binding ->
             selectedImageUri?.let { uri ->
                 try {
-                    binding.ivItemImage.setImageURI(uri)
+                    // Use Glide with smooth rounded corners (8dp)
+                    Glide.with(requireContext())
+                        .load(uri)
+                        .transform(RoundedCorners(8))  // Changed from 24 to 8
+                        .centerCrop()
+                        .placeholder(R.drawable.ic_image)
+                        .error(R.drawable.ic_image)
+                        .into(binding.ivItemImage)
+
                     binding.tvTapToSelect.text = "Change Image"
+                    binding.ivDeleteImage.visibility = View.VISIBLE
+                    binding.ivDeleteImage.setOnClickListener {
+                        deleteSelectedImage()
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     "Failed to load image".toastError(requireContext())
@@ -554,7 +570,21 @@ class ProductsFragment : Fragment() {
             }
         }
     }
+    private fun deleteSelectedImage() {
+        currentSheetBinding?.let { binding ->
+            // Clear the selected image
+            selectedImageUri = null
 
+            // Reset the image view to placeholder
+            binding.ivItemImage.setImageResource(R.drawable.ic_image)
+            binding.tvTapToSelect.text = "Tap to select image"
+
+            // Hide the delete button
+            binding.ivDeleteImage.visibility = View.GONE
+
+            "Image removed".toastSuccess(requireContext())
+        }
+    }
     private fun saveImageToInternalStorage(uri: Uri): String? {
         try {
             val context = requireContext()
@@ -633,13 +663,15 @@ class ProductsFragment : Fragment() {
 
             sheetBinding.ivItemImage.setImageResource(R.drawable.ic_image)
             sheetBinding.tvTapToSelect.text = "Tap to select image"
+            // ===== ADD THIS: Hide delete button initially =====
+            sheetBinding.ivDeleteImage.visibility = View.GONE
+            sheetBinding.ivDeleteImage.setOnClickListener(null)
 
             loadVehiclesForDropdown()
         }
 
         sheet.show(parentFragmentManager, "AddProductSheet")
     }
-
     private fun loadVehiclesForDropdown() {
         lifecycleScope.launch {
             try {
@@ -796,6 +828,9 @@ class ProductsFragment : Fragment() {
         binding.etItemDescription.text?.clear()
         binding.ivItemImage.setImageResource(R.drawable.ic_image)
         binding.tvTapToSelect.text = "Tap to select image"
+        // ===== ADD THIS: Hide delete button =====
+        binding.ivDeleteImage.visibility = View.GONE
+        binding.ivDeleteImage.setOnClickListener(null) // Remove click listener
         selectedImageUri = null
         selectedVehicles.clear()
         updateVehicleChips()
@@ -803,7 +838,6 @@ class ProductsFragment : Fragment() {
         bottomSheetDropdownPopup?.dismiss()
         vehicleDropdownPopup?.dismiss()
     }
-
     // ==============================
     // VEHICLE MULTI-SELECT DROPDOWN
     // ==============================

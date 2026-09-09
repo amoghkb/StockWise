@@ -97,6 +97,14 @@ class SharedDataViewModel @Inject constructor(
             _error.value = null
 
             try {
+                // CLEAR DATA FIRST - This will trigger the observer with empty state
+                _lowStockItems.value = emptyList()
+                _weeklySalesData.value = emptyList()
+                _todaySales.value = "₹0"
+                _stockAlertsCount.value = "0"
+                _totalItems.value = "0"
+
+                // Now load fresh data
                 loadTodaySales()
                 loadStockAlerts()
                 loadTotalItems()

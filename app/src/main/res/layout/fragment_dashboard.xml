@@ -7,14 +7,16 @@
     android:background="#FFFFFF"
     tools:context=".ui.fragment.DashboardFragment">
 
-    <!-- Main ScrollView - Hide scroll bars -->
+    <!-- ===== MAIN CONTENT (Visible when data is loaded) ===== -->
     <ScrollView
+        android:id="@+id/scroll_main_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
         android:overScrollMode="never"
         android:scrollbars="none"
-        android:background="#FFFFFF">
+        android:background="#FFFFFF"
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -266,42 +268,34 @@
                     android:textStyle="bold"
                     android:fontFamily="@font/inter_bold" />
 
+                <TextView
+                    android:id="@+id/tv_low_stock_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 items"
+                    android:textColor="#8A8FA3"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/inter_regular" />
+
             </LinearLayout>
 
             <!-- ===== Low Stock List Card ===== -->
-            <androidx.cardview.widget.CardView
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="#FFFFFF">
+                android:background="@drawable/rounded_design_bg"
+                android:padding="14dp">
 
-                <!-- NestedScrollView - Hide scroll bars -->
-                <androidx.core.widget.NestedScrollView
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_low_stock"
                     android:layout_width="match_parent"
                     android:layout_height="250dp"
-                    android:fillViewport="false"
-                    android:scrollbars="none">
+                    android:overScrollMode="never"
+                    android:scrollbars="vertical" />
 
-                    <LinearLayout
-                        android:id="@+id/layout_low_stock_list"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:paddingTop="6dp"
-                        android:paddingBottom="6dp">
-
-                        <!-- Items will be dynamically added here -->
-
-                    </LinearLayout>
-
-                </androidx.core.widget.NestedScrollView>
-
-            </androidx.cardview.widget.CardView>
+            </RelativeLayout>
 
             <!-- ===== Weekly Sales Chart Section ===== -->
             <LinearLayout
@@ -363,7 +357,33 @@
 
     </ScrollView>
 
-    <!-- Custom Floating Action Button -->
+    <!-- ===== FULL PAGE SKELETON LOADING ===== -->
+    <com.facebook.shimmer.ShimmerFrameLayout
+        android:id="@+id/shimmer_full_page"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FFFFFF"
+        android:visibility="gone"
+        app:shimmer_auto_start="false"
+        app:shimmer_duration="1200"
+        app:shimmer_repeat_count="-1"
+        app:shimmer_dropoff="0.5"
+        app:shimmer_base_alpha="0.3"
+        app:shimmer_highlight_alpha="0.8">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="none"
+            android:fillViewport="true">
+
+            <include layout="@layout/dashboard_skeleton" />
+
+        </ScrollView>
+
+    </com.facebook.shimmer.ShimmerFrameLayout>
+
+    <!-- ===== FAB Button ===== -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_add_item"
         android:layout_width="56dp"

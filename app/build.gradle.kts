@@ -70,7 +70,10 @@ dependencies {
 
     // ===== ADD THIS LINE FOR MPANDROIDCHART =====
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-    
+
+    //animation
+    implementation("com.facebook.shimmer:shimmer:0.5.0")
+
     // Hilt
     implementation("com.google.dagger:hilt-android:2.48")
     kapt("com.google.dagger:hilt-compiler:2.48")

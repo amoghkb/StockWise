@@ -7,16 +7,14 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.stockwise.R
 import com.example.stockwise.data.entities.DailySalesSummary
-import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
 import com.example.stockwise.databinding.FragmentDashboardBinding
-import androidx.fragment.app.activityViewModels
+import com.example.stockwise.ui.adapter.LowStockAdapter
 import com.example.stockwise.viewmodels.SharedDataViewModel
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
@@ -31,20 +29,17 @@ import java.text.DecimalFormat
 @AndroidEntryPoint
 class DashboardFragment : Fragment() {
 
-    // View Binding
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
 
-    // Use SharedDataViewModel instead of DashboardViewModel
     private val sharedViewModel: SharedDataViewModel by activityViewModels()
+    private lateinit var lowStockAdapter: LowStockAdapter
 
-    // Animation state
     private var isSyncing = false
     private var rotateAnimator: ObjectAnimator? = null
     private val SYNC_DURATION = 1000L
-
-    // Handler for delayed operations
     private val handler = Handler(Looper.getMainLooper())
+    private var isFirstLoad = true
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,15 +53,34 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupRecyclerView()
         setupClickListeners()
         observeData()
+
+        // Show skeleton on first load
+        showSkeleton(true)
+        sharedViewModel.refreshDashboardData()
     }
 
     override fun onResume() {
         super.onResume()
-        // Refresh data when fragment becomes visible
-        // This ensures data is fresh when returning from other fragments
-        sharedViewModel.refreshDashboardData()
+        if (!isFirstLoad) {
+            sharedViewModel.refreshDashboardData()
+        }
+    }
+
+    private fun setupRecyclerView() {
+        lowStockAdapter = LowStockAdapter(
+            getStockProgress = { item ->
+                sharedViewModel.getStockProgress(item)
+            }
+        )
+
+        binding.rvLowStock.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = lowStockAdapter
+            setHasFixedSize(true)
+        }
     }
 
     private fun setupClickListeners() {
@@ -86,6 +100,9 @@ class DashboardFragment : Fragment() {
         binding.btnSync.isEnabled = false
         binding.btnSync.alpha = 0.7f
         startSyncAnimation()
+
+        // Show skeleton while syncing
+        showSkeleton(true)
         sharedViewModel.refreshDashboardData()
 
         handler.postDelayed({
@@ -108,6 +125,19 @@ class DashboardFragment : Fragment() {
         binding.btnSync.isEnabled = true
         binding.btnSync.alpha = 1.0f
         isSyncing = false
+    }
+
+    private fun showSkeleton(show: Boolean) {
+        if (show) {
+            binding.shimmerFullPage.visibility = View.VISIBLE
+            binding.shimmerFullPage.startShimmer()
+            binding.scrollMainContent.visibility = View.GONE
+        } else {
+            binding.shimmerFullPage.visibility = View.GONE
+            binding.shimmerFullPage.stopShimmer()
+            binding.scrollMainContent.visibility = View.VISIBLE
+            isFirstLoad = false
+        }
     }
 
     private fun observeData() {
@@ -149,7 +179,15 @@ class DashboardFragment : Fragment() {
         // Observe low stock items
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.lowStockItems.collect { items ->
-                populateLowStockItems(items)
+                lowStockAdapter.submitList(items)
+                binding.tvLowStockCount.text = "${items.size} items"
+
+                // Hide skeleton when data arrives
+                showSkeleton(false)
+
+                if (isSyncing) {
+                    stopSync()
+                }
             }
         }
 
@@ -176,55 +214,10 @@ class DashboardFragment : Fragment() {
                     if (isSyncing) {
                         stopSync()
                     }
+                    showSkeleton(false)
                     // Show error toast if needed
                 }
             }
-        }
-    }
-
-    private fun populateLowStockItems(items: List<ItemWithCategoryAndVehicles>) {
-        binding.layoutLowStockList.removeAllViews()
-
-        if (items.isEmpty()) {
-            val emptyView = layoutInflater.inflate(
-                R.layout.item_empty_state,
-                binding.layoutLowStockList,
-                false
-            )
-            binding.layoutLowStockList.addView(emptyView)
-            return
-        }
-
-        items.forEachIndexed { index, item ->
-            val itemView = layoutInflater.inflate(
-                R.layout.item_low_stock,
-                binding.layoutLowStockList,
-                false
-            )
-
-            val tvItemName = itemView.findViewById<TextView>(R.id.tv_item_name)
-            val tvStockCount = itemView.findViewById<TextView>(R.id.tv_stock_count)
-            val tvStockLabel = itemView.findViewById<TextView>(R.id.tv_stock_label)
-            val progressBar = itemView.findViewById<ProgressBar>(R.id.progress_bar)
-
-            tvItemName.text = item.item.name
-            tvStockCount.text = item.item.stock.toString()
-            tvStockLabel.text = "left"
-
-            val progress = sharedViewModel.getStockProgress(item)
-            progressBar.progress = progress
-
-            if (index < items.size - 1) {
-                val divider = View(requireContext())
-                divider.layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    1
-                )
-                divider.setBackgroundColor(requireContext().getColor(R.color.divider_color))
-                binding.layoutLowStockList.addView(divider)
-            }
-
-            binding.layoutLowStockList.addView(itemView)
         }
     }
 
@@ -238,12 +231,10 @@ class DashboardFragment : Fragment() {
             return
         }
 
-        // Convert data to BarEntry
         val entries = salesData.mapIndexed { index, day ->
             BarEntry(index.toFloat(), day.totalAmount.toFloat())
         }
 
-        // Create DataSet and style it
         val dataSet = BarDataSet(entries, "Daily Sales").apply {
             color = resources.getColor(R.color.chart_high, null)
             valueTextColor = resources.getColor(R.color.text_secondary, null)
@@ -251,22 +242,18 @@ class DashboardFragment : Fragment() {
             setDrawValues(true)
             valueFormatter = object : ValueFormatter() {
                 private val format = DecimalFormat("₹#,##0")
-
                 override fun getFormattedValue(value: Float): String {
                     return if (value > 0) format.format(value.toDouble()) else ""
                 }
             }
         }
 
-        // Prepare day labels
         val days = salesData.map { it.date ?: "" }
 
-        // Setup BarData
         val barData = BarData(dataSet).apply {
             barWidth = 0.6f
         }
 
-        // Configure chart
         barChart.apply {
             this.data = barData
             description.isEnabled = false
@@ -278,7 +265,6 @@ class DashboardFragment : Fragment() {
             setScaleEnabled(false)
             setDoubleTapToZoomEnabled(false)
 
-            // Configure X-axis
             xAxis.apply {
                 valueFormatter = IndexAxisValueFormatter(days)
                 position = XAxis.XAxisPosition.BOTTOM
@@ -289,7 +275,6 @@ class DashboardFragment : Fragment() {
                 textColor = resources.getColor(R.color.text_secondary, null)
             }
 
-            // Configure left Y-axis
             axisLeft.apply {
                 setDrawGridLines(true)
                 setDrawAxisLine(false)
@@ -299,19 +284,14 @@ class DashboardFragment : Fragment() {
                 textColor = resources.getColor(R.color.text_secondary, null)
                 valueFormatter = object : ValueFormatter() {
                     private val format = DecimalFormat("₹#,##0")
-
                     override fun getFormattedValue(value: Float): String {
                         return if (value > 0) format.format(value.toDouble()) else ""
                     }
                 }
             }
 
-            // Disable right Y-axis
             axisRight.isEnabled = false
-
-            // Configure legend
             legend.isEnabled = false
-
             invalidate()
         }
     }

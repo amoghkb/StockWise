@@ -7,19 +7,20 @@
     android:background="#F0F2F5"
     tools:context=".ui.fragment.ItemDetailFragment">
 
+    <!-- Main Content with ScrollView -->
     <ScrollView
+        android:id="@+id/scroll_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
         android:overScrollMode="never"
+        android:paddingBottom="80dp"
         android:background="#FFFFFF">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"
             android:background="#FFFFFF">
 
             <!-- Top Row: Back and Edit buttons -->
@@ -416,6 +417,7 @@
                         </RelativeLayout>
                     </LinearLayout>
                 </LinearLayout>
+
                 <!-- Assigned Vehicles -->
                 <TextView
                     android:layout_width="match_parent"
@@ -437,26 +439,38 @@
                     android:textSize="13sp"
                     android:fontFamily="@font/inter_regular" />
 
-                <!-- Add to Sale/Bill button -->
-                <androidx.appcompat.widget.AppCompatButton
-                    android:id="@+id/btn_add_to_sale"
-                    style="@style/Widget.AppCompat.Button.Borderless"
+                <!-- Bottom spacer to ensure content goes above the fixed button -->
+                <View
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:layout_marginTop="20dp"
-                    android:background="@drawable/rounded_save_bg"
-                    android:drawablePadding="8dp"
-                    android:drawableTint="#FFFFFF"
-                    android:gravity="center"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:text="Add to Today Sale"
-                    android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
-                    android:textSize="15sp"
-                    android:fontFamily="@font/inter_bold" />
+                    android:layout_height="20dp" />
+
             </LinearLayout>
 
         </LinearLayout>
+
     </ScrollView>
+
+    <!-- Fixed Button at Bottom -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btn_add_to_sale"
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/rounded_save_bg"
+        android:drawablePadding="8dp"
+        android:drawableTint="#FFFFFF"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="Add to Today Sale"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:fontFamily="@font/inter_bold"
+        android:elevation="4dp" />
+
 </FrameLayout>

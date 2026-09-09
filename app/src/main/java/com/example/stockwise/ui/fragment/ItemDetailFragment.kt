@@ -37,6 +37,8 @@ import androidx.fragment.app.viewModels
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.example.stockwise.R
 import com.example.stockwise.commons.ReusableBottomSheet
 import com.example.stockwise.commons.toastError
@@ -490,6 +492,50 @@ class ItemDetailFragment : Fragment() {
     }
 
     // ==============================
+    // IMAGE DELETION METHODS
+    // ==============================
+
+    private fun deleteSelectedImage() {
+        currentSheetBinding?.let { binding ->
+            // Clear the selected image
+            selectedImageUri = null
+
+            // Reset the image view to placeholder
+            binding.ivItemImage.setImageResource(R.drawable.ic_image)
+            binding.tvTapToSelect.text = "Tap to select image"
+
+            // Hide the delete button
+            binding.ivDeleteImage.visibility = View.GONE
+            binding.ivDeleteImage.setOnClickListener(null)
+
+            "Image removed".toastSuccess(requireContext())
+        }
+    }
+
+    private fun updateImagePreview() {
+        val binding = currentSheetBinding
+        selectedImageUri?.let { uri ->
+            try {
+                // Use Glide with smooth rounded corners (8dp)
+                Glide.with(requireContext())
+                    .load(uri)
+                    .transform(RoundedCorners(8))  // Changed from 24 to 8
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image)
+                    .error(R.drawable.ic_image)
+                    .into(binding?.ivItemImage!!)
+
+                binding.tvTapToSelect.text = "Change Image"
+                binding.ivDeleteImage.visibility = View.VISIBLE
+                binding.ivDeleteImage.setOnClickListener {
+                    deleteSelectedImage()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+    // ==============================
     // EDIT ITEM SHEET
     // ==============================
 
@@ -501,6 +547,11 @@ class ItemDetailFragment : Fragment() {
         sheet.setContentBinder { content ->
             val sheetBinding = AddProductSheetBinding.bind(content)
             currentSheetBinding = sheetBinding
+
+            // Reset delete button state
+            sheetBinding.ivDeleteImage.visibility = View.GONE
+            sheetBinding.ivDeleteImage.setOnClickListener(null)
+
             showItemFormWithData(sheetBinding)
             setupSheetClickListeners(sheetBinding, sheet)
             setupVehicleMultiSelectDropdown(sheetBinding)
@@ -521,16 +572,34 @@ class ItemDetailFragment : Fragment() {
         binding.etStock.setText(currentStock.toString())
         binding.etItemDescription.setText(description)
 
+        // Handle existing image
         if (!imageUri.isNullOrEmpty()) {
             try {
                 val imageFile = File(imageUri)
                 if (imageFile.exists()) {
                     binding.ivItemImage.setImageURI(Uri.fromFile(imageFile))
                     binding.tvTapToSelect.text = "Change Image"
+                    // Don't show delete button for existing image
+                    // User can replace it by selecting a new one
+                    binding.ivDeleteImage.visibility = View.GONE
+                    binding.ivDeleteImage.setOnClickListener(null)
+                } else {
+                    binding.ivItemImage.setImageResource(R.drawable.ic_image)
+                    binding.tvTapToSelect.text = "Tap to select image"
+                    binding.ivDeleteImage.visibility = View.GONE
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                binding.ivItemImage.setImageResource(R.drawable.ic_image)
+                binding.tvTapToSelect.text = "Tap to select image"
+                binding.ivDeleteImage.visibility = View.GONE
             }
+        } else {
+            // No existing image
+            binding.ivItemImage.setImageResource(R.drawable.ic_image)
+            binding.tvTapToSelect.text = "Tap to select image"
+            binding.ivDeleteImage.visibility = View.GONE
+            binding.ivDeleteImage.setOnClickListener(null)
         }
 
         binding.etCategory.isFocusable = false
@@ -710,18 +779,6 @@ class ItemDetailFragment : Fragment() {
         }
     }
 
-    private fun updateImagePreview() {
-        val binding = currentSheetBinding
-        selectedImageUri?.let { uri ->
-            try {
-                binding?.ivItemImage?.setImageURI(uri)
-                binding?.tvTapToSelect?.text = "Change Image"
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
     private fun checkPermissionAndOpenPicker() {
         val permissions = mutableListOf<String>()
 
@@ -840,7 +897,6 @@ class ItemDetailFragment : Fragment() {
             searchEditText.text?.clear()
             val parent = searchEditText.parent as? ViewGroup
             val tvEmptyState = parent?.findViewById<TextView>(R.id.tvEmptyState)
-            // This will now sort the vehicles with selected ones on top
             filterVehicles("", tvEmptyState)
             hideClearButtonWithFade(clearButton)
         }
@@ -1170,6 +1226,7 @@ class ItemDetailFragment : Fragment() {
         // Show/hide empty state
         tvEmptyState?.visibility = if (sortedFiltered.isEmpty()) View.VISIBLE else View.GONE
     }
+
     private fun updateVehicleSelectionUI(tvSelectedCount: TextView?) {
         val count = selectedVehicles.size
         tvSelectedCount?.text = "$count vehicle${if (count != 1) "s" else ""} selected"
@@ -1299,6 +1356,7 @@ class ItemDetailFragment : Fragment() {
             return
         }
 
+        // Handle image: if new image selected, save it; otherwise keep existing
         var savedImagePath = existingItem.imageUri
         selectedImageUri?.let { uri ->
             savedImagePath = saveImageToInternalStorage(uri)
