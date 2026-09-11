@@ -1,9 +1,9 @@
 package com.example.stockwise.viewmodels
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.stockwise.data.entities.DailySalesSummary
+import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
 import com.example.stockwise.data.repository.ItemRepository
 import com.example.stockwise.data.repository.SalesRepository
@@ -27,44 +27,41 @@ class SharedDataViewModel @Inject constructor(
 
     // ===== DASHBOARD DATA =====
 
-    // Today's Sales
     private val _todaySales = MutableStateFlow("₹0")
     val todaySales: StateFlow<String> = _todaySales.asStateFlow()
 
-    // Stock Alerts count (items with stock < 10)
     private val _stockAlertsCount = MutableStateFlow("0")
     val stockAlertsCount: StateFlow<String> = _stockAlertsCount.asStateFlow()
 
-    // Total Items count
     private val _totalItems = MutableStateFlow("0")
     val totalItems: StateFlow<String> = _totalItems.asStateFlow()
 
-    // Low Stock Items (stock < 10)
     private val _lowStockItems = MutableStateFlow<List<ItemWithCategoryAndVehicles>>(emptyList())
     val lowStockItems: StateFlow<List<ItemWithCategoryAndVehicles>> = _lowStockItems.asStateFlow()
 
-    // Weekly Sales Data for Bar Chart
     private val _weeklySalesData = MutableStateFlow<List<DailySalesSummary>>(emptyList())
     val weeklySalesData: StateFlow<List<DailySalesSummary>> = _weeklySalesData.asStateFlow()
 
-    // Greeting and Date
     private val _greeting = MutableStateFlow("")
     val greeting: StateFlow<String> = _greeting.asStateFlow()
 
     private val _currentDate = MutableStateFlow("")
     val currentDate: StateFlow<String> = _currentDate.asStateFlow()
 
-    // Loading state
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    // Error state
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // Last refresh timestamp (for debugging)
     private val _lastRefreshTime = MutableStateFlow<Long>(0)
     val lastRefreshTime: StateFlow<Long> = _lastRefreshTime.asStateFlow()
+
+    // ===== SALES SUCCESS EVENT (for cart sale feedback) =====
+    private val _saleSuccessEvent = MutableStateFlow<String?>(null)
+    val saleSuccessEvent: StateFlow<String?> = _saleSuccessEvent.asStateFlow()
+
+    fun clearSaleSuccessEvent() { _saleSuccessEvent.value = null }
 
     init {
         setupGreetingAndDate()
@@ -87,24 +84,18 @@ class SharedDataViewModel @Inject constructor(
         _currentDate.value = dateFormat.format(Date())
     }
 
-    /**
-     * Refresh all dashboard data
-     * This can be called from any fragment when data changes
-     */
     fun refreshDashboardData() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
 
             try {
-                // CLEAR DATA FIRST - This will trigger the observer with empty state
                 _lowStockItems.value = emptyList()
                 _weeklySalesData.value = emptyList()
                 _todaySales.value = "₹0"
                 _stockAlertsCount.value = "0"
                 _totalItems.value = "0"
 
-                // Now load fresh data
                 loadTodaySales()
                 loadStockAlerts()
                 loadTotalItems()
@@ -203,9 +194,6 @@ class SharedDataViewModel @Inject constructor(
         return result
     }
 
-    /**
-     * Get stock progress for an item (0-100%)
-     */
     fun getStockProgress(item: ItemWithCategoryAndVehicles): Int {
         val currentStock = item.item.stock
         if (currentStock <= 0) return 0
@@ -214,9 +202,6 @@ class SharedDataViewModel @Inject constructor(
         return progress.coerceIn(0, 100)
     }
 
-    /**
-     * Get stock progress color based on stock level
-     */
     fun getStockProgressColor(item: ItemWithCategoryAndVehicles): Int {
         val stock = item.item.stock
         return when {
@@ -226,10 +211,106 @@ class SharedDataViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Force refresh data (useful after sales or item updates)
-     */
     fun forceRefresh() {
         refreshDashboardData()
+    }
+
+    // ============================================================
+    // CART SALE SUPPORT METHODS
+    // ============================================================
+
+    /**
+     * Fetch all active items once (one-shot).
+     * Used by cart to populate search results.
+     */
+    suspend fun getAllItemsOnce(): List<Item> {
+        return try {
+            itemRepository.getAllActiveItemsWithCategory().first().map { it.item }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    /**
+     * Record a single sale line. Delegates to SalesRepository.
+     */
+    suspend fun recordSale(
+        itemId: String,
+        itemName: String,
+        quantity: Int,
+        sellingPrice: Double,
+        originalPrice: Double
+    ) {
+        salesRepository.recordSale(
+            itemId = itemId,
+            itemName = itemName,
+            quantity = quantity,
+            sellingPrice = sellingPrice,
+            originalPrice = originalPrice
+        )
+    }
+
+    /**
+     * Update item stock after sale.
+     * Uses the full Item entity fetched from repo to preserve all fields.
+     */
+    suspend fun updateItemStock(itemId: String, newStock: Int) {
+        try {
+            val item = itemRepository.getItemById(itemId) ?: return
+            itemRepository.updateItem(
+                item.copy(
+                    stock = newStock,
+                    updatedAt = Date()
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Complete a batch sale — used by Dashboard cart.
+     * Records every line and decrements stock for each item.
+     * Returns total revenue successfully processed.
+     */
+    suspend fun completeCartSale(cartItems: List<Pair<Item, Pair<Int, Double>>>): Double {
+        var totalRevenue = 0.0
+
+        for ((item, qtyPrice) in cartItems) {
+            val (quantity, price) = qtyPrice
+            try {
+                // 1. Record sale
+                salesRepository.recordSale(
+                    itemId = item.id,
+                    itemName = item.name,
+                    quantity = quantity,
+                    sellingPrice = price,
+                    originalPrice = item.originalPrice
+                )
+
+                // 2. Update stock
+                val freshItem = itemRepository.getItemById(item.id)
+                if (freshItem != null) {
+                    itemRepository.updateItem(
+                        freshItem.copy(
+                            stock = (freshItem.stock - quantity).coerceAtLeast(0),
+                            updatedAt = Date()
+                        )
+                    )
+                }
+
+                totalRevenue += quantity * price
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Refresh dashboard after batch
+        refreshDashboardData()
+        _saleSuccessEvent.value = "Sale completed: ₹${
+            String.format(Locale.getDefault(), "%.0f", totalRevenue)
+        }"
+        return totalRevenue
     }
 }

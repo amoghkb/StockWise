@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="12dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?attr/selectableItemBackground">
+
+    <ImageView
+        android:id="@+id/ivSearchResultImage"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_image" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvSearchResultName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Product Name"
+            android:textSize="14sp"
+            android:fontFamily="@font/inter_bold"
+            android:textColor="#1B2340"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/tvSearchResultPrice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="₹0.00 • Stock: 0"
+            android:textSize="12sp"
+            android:fontFamily="@font/inter_regular"
+            android:textColor="#6B7280" />
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/ivSearchResultAdd"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:src="@drawable/ic_plus"
+        android:background="@drawable/rounded_circle_button"
+        android:padding="6dp"
+        android:tint="@color/stock_wise_primary" />
+</LinearLayout>

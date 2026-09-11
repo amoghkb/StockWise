@@ -280,9 +280,10 @@
             </LinearLayout>
 
             <!-- ===== Low Stock List Card ===== -->
+            <!-- ===== Low Stock List Card ===== -->
             <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="250dp"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 android:background="@drawable/rounded_design_bg"
@@ -291,9 +292,40 @@
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rv_low_stock"
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
+                    android:layout_height="match_parent"
                     android:overScrollMode="never"
                     android:scrollbars="vertical" />
+
+                <!-- Empty state shown when there are no low-stock items -->
+                <LinearLayout
+                    android:id="@+id/ll_empty_low_stock"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:visibility="gone">
+
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="No low stock items"
+                        android:textColor="#6B7280"
+                        android:textSize="14sp"
+                        android:fontFamily="@font/inter_medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="All products have sufficient stock"
+                        android:textColor="#9CA3AF"
+                        android:textSize="12sp"
+                        android:fontFamily="@font/inter_regular"
+                        android:gravity="center" />
+
+                </LinearLayout>
 
             </RelativeLayout>
 
@@ -391,8 +423,8 @@
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="16dp"
-        android:src="@drawable/ic_plus"
-        android:padding="4dp"
+        app:maxImageSize="30dp"
+        android:src="@drawable/ic_cart"
         android:backgroundTint="@color/stock_wise_primary"
         app:tint="@android:color/white"
         app:borderWidth="0dp"

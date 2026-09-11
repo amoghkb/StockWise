@@ -1,20 +1,41 @@
 package com.example.stockwise.ui.fragment
 
 import android.animation.ObjectAnimator
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.appcompat.widget.AppCompatButton
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.stockwise.R
+import com.example.stockwise.commons.toastError
+import com.example.stockwise.commons.toastSuccess
 import com.example.stockwise.data.entities.DailySalesSummary
+import com.example.stockwise.data.entities.Item
 import com.example.stockwise.databinding.FragmentDashboardBinding
+import com.example.stockwise.ui.adapter.CartAdapter
+import com.example.stockwise.ui.adapter.CartSearchAdapter
 import com.example.stockwise.ui.adapter.LowStockAdapter
+import com.example.stockwise.ui.model.CartItem
 import com.example.stockwise.viewmodels.SharedDataViewModel
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
@@ -22,6 +43,8 @@ import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.DecimalFormat
@@ -29,17 +52,39 @@ import java.text.DecimalFormat
 @AndroidEntryPoint
 class DashboardFragment : Fragment() {
 
+    // ============================================================
+    // BINDING & VIEWMODEL
+    // ============================================================
+
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
 
     private val sharedViewModel: SharedDataViewModel by activityViewModels()
     private lateinit var lowStockAdapter: LowStockAdapter
 
+    // ============================================================
+    // SYNC STATE
+    // ============================================================
+
     private var isSyncing = false
     private var rotateAnimator: ObjectAnimator? = null
     private val SYNC_DURATION = 1000L
     private val handler = Handler(Looper.getMainLooper())
     private var isFirstLoad = true
+
+    // ============================================================
+    // CART STATE
+    // ============================================================
+
+    private var cartBottomSheet: BottomSheetDialog? = null
+    private val cartItems = mutableListOf<CartItem>()
+    private var cartAdapter: CartAdapter? = null
+    private var cartSearchAdapter: CartSearchAdapter? = null
+    private val allItemsForCart = mutableListOf<Item>()
+
+    // ============================================================
+    // LIFECYCLE
+    // ============================================================
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -69,6 +114,26 @@ class DashboardFragment : Fragment() {
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        handler.removeCallbacksAndMessages(null)
+        rotateAnimator?.cancel()
+        rotateAnimator = null
+
+        // Clean up cart references
+        cartBottomSheet?.dismiss()
+        cartBottomSheet = null
+        cartAdapter = null
+        cartSearchAdapter = null
+        cartItems.clear()
+
+        _binding = null
+    }
+
+    // ============================================================
+    // SETUP
+    // ============================================================
+
     private fun setupRecyclerView() {
         lowStockAdapter = LowStockAdapter(
             getStockProgress = { item ->
@@ -91,9 +156,13 @@ class DashboardFragment : Fragment() {
         }
 
         binding.fabAddItem.setOnClickListener {
-            // Navigate to Add Item screen
+            openCartSaleBottomSheet()
         }
     }
+
+    // ============================================================
+    // SYNC ANIMATION
+    // ============================================================
 
     private fun performSync() {
         isSyncing = true
@@ -101,7 +170,6 @@ class DashboardFragment : Fragment() {
         binding.btnSync.alpha = 0.7f
         startSyncAnimation()
 
-        // Show skeleton while syncing
         showSkeleton(true)
         sharedViewModel.refreshDashboardData()
 
@@ -140,86 +208,108 @@ class DashboardFragment : Fragment() {
         }
     }
 
+    // ============================================================
+    // OBSERVERS
+    // ============================================================
+
     private fun observeData() {
-        // Observe greeting
+        // Greeting
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.greeting.collect { greeting ->
                 binding.tvGreeting.text = greeting
             }
         }
 
-        // Observe current date
+        // Date
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.currentDate.collect { date ->
                 binding.tvDate.text = date
             }
         }
 
-        // Observe today's sales
+        // Today's sales
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.todaySales.collect { sales ->
                 binding.tvTodaySales.text = sales
             }
         }
 
-        // Observe stock alerts count
+        // Stock alerts count
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.stockAlertsCount.collect { count ->
                 binding.tvStockAlerts.text = count
             }
         }
 
-        // Observe total items
+        // Total items
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.totalItems.collect { total ->
                 binding.tvTotalItems.text = total
             }
         }
 
-        // Observe low stock items
+        // Low stock items
+
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.lowStockItems.collect { items ->
                 lowStockAdapter.submitList(items)
                 binding.tvLowStockCount.text = "${items.size} items"
 
-                // Hide skeleton when data arrives
-                showSkeleton(false)
-
-                if (isSyncing) {
-                    stopSync()
+                // ✅ Toggle empty state vs list
+                if (items.isEmpty()) {
+                    binding.llEmptyLowStock.visibility = View.VISIBLE
+                    binding.rvLowStock.visibility = View.GONE
+                } else {
+                    binding.llEmptyLowStock.visibility = View.GONE
+                    binding.rvLowStock.visibility = View.VISIBLE
                 }
+
+                if (isSyncing) stopSync()
             }
         }
 
-        // Observe weekly sales data
+        // Weekly sales chart
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.weeklySalesData.collect { salesData ->
                 populateWeeklyBarChart(salesData)
             }
         }
 
-        // Observe loading state
+        // Loading state
+        // Loading state
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.isLoading.collect { isLoading ->
-                if (!isLoading && isSyncing) {
-                    stopSync()
+                if (!isLoading) {
+                    showSkeleton(false)
+                    if (isSyncing) stopSync()
                 }
             }
         }
 
-        // Observe error state
+        // Error state
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.error.collect { error ->
                 error?.let {
-                    if (isSyncing) {
-                        stopSync()
-                    }
+                    if (isSyncing) stopSync()
                     showSkeleton(false)
-                    // Show error toast if needed
+                }
+            }
+        }
+
+        // Cart sale success event
+        viewLifecycleOwner.lifecycleScope.launch {
+            sharedViewModel.saleSuccessEvent.collect { message ->
+                message?.let {
+                    it.toastSuccess(requireContext())
+                    sharedViewModel.clearSaleSuccessEvent()
                 }
             }
         }
     }
+
+    // ============================================================
+    // WEEKLY BAR CHART
+    // ============================================================
 
     private fun populateWeeklyBarChart(salesData: List<DailySalesSummary>) {
         val barChart = binding.chartWeeklySales
@@ -227,6 +317,7 @@ class DashboardFragment : Fragment() {
         if (salesData.isEmpty() || salesData.all { it.totalAmount == 0.0 }) {
             barChart.clear()
             barChart.setNoDataText("No sales data for the week")
+            barChart.setNoDataTextColor(resources.getColor(R.color.text_secondary, null))
             barChart.invalidate()
             return
         }
@@ -296,11 +387,362 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        handler.removeCallbacksAndMessages(null)
-        rotateAnimator?.cancel()
-        rotateAnimator = null
-        _binding = null
+    // ============================================================
+    // CART SALE BOTTOM SHEET
+    // ============================================================
+
+    private fun openCartSaleBottomSheet() {
+        // Reset cart
+        cartItems.clear()
+        allItemsForCart.clear()
+
+        val dialog = BottomSheetDialog(requireContext(), R.style.BottomSheetDialogTheme)
+        val view = LayoutInflater.from(requireContext())
+            .inflate(R.layout.bottom_sheet_cart_sale, null)
+
+        dialog.setContentView(view)
+
+        // ✅ Show FIRST — so internal layout pass doesn't override our settings
+        dialog.show()
+        cartBottomSheet = dialog
+
+        // ============================================================
+        // ✅ FORCE FULL PHONE HEIGHT
+        // ============================================================
+// ✅ FORCE FULL PHONE HEIGHT (edge-to-edge, no top gap)
+// ============================================================
+        dialog.window?.let { window ->
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            window.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+        }
+
+        val screenHeight = resources.displayMetrics.heightPixels
+
+        val bottomSheet = dialog.findViewById<FrameLayout>(
+            com.google.android.material.R.id.design_bottom_sheet
+        )
+        bottomSheet?.let { sheet ->
+            sheet.layoutParams = sheet.layoutParams.apply {
+                height = ViewGroup.LayoutParams.MATCH_PARENT
+            }
+            sheet.requestLayout()
+        }
+
+// Paint the status-bar area white by padding the actual content view
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            v.setPadding(v.paddingLeft, statusBarHeight, v.paddingRight, v.paddingBottom)
+            insets
+        }
+        dialog.behavior.apply {
+            peekHeight = screenHeight
+            isDraggable = true
+            isHideable = true        // ✅ allow swipe down to dismiss
+            skipCollapsed = true
+            state = BottomSheetBehavior.STATE_EXPANDED
+        }
+        // ============================================================
+        // BIND VIEWS
+        // ============================================================
+        val etSearch = view.findViewById<EditText>(R.id.etCartSearch)
+        val ivClearSearch = view.findViewById<ImageView>(R.id.ivCartClearSearch)
+        val flSearchResultsContainer = view.findViewById<FrameLayout>(R.id.flSearchResultsContainer)
+        val rvSearchResults = view.findViewById<RecyclerView>(R.id.rvCartSearchResults)
+        val llNoSearchResults = view.findViewById<LinearLayout>(R.id.llNoSearchResults)
+        val tvNoResultsQuery = view.findViewById<TextView>(R.id.tvNoResultsQuery)
+        val flCartContainer = view.findViewById<FrameLayout>(R.id.flCartContainer)
+        val rvCartItems = view.findViewById<RecyclerView>(R.id.rvCartItems)
+        val llEmptyCart = view.findViewById<LinearLayout>(R.id.llEmptyCart)
+        val llSummary = view.findViewById<LinearLayout>(R.id.llCartSummary)
+        val tvTotal = view.findViewById<TextView>(R.id.tvCartTotal)
+        val tvTotalCost = view.findViewById<TextView>(R.id.tvCartTotalCost)
+        val tvProfit = view.findViewById<TextView>(R.id.tvCartProfit)
+        val tvItemCount = view.findViewById<TextView>(R.id.tvCartItemCount)
+        val btnCompleteSale = view.findViewById<AppCompatButton>(R.id.btnCompleteSale)
+
+        // ===== Search results adapter =====
+        cartSearchAdapter = CartSearchAdapter { item ->
+            addItemToCart(
+                item = item,
+                llEmptyCart = llEmptyCart,
+                llSummary = llSummary,
+                tvTotal = tvTotal,
+                tvTotalCost = tvTotalCost,
+                tvProfit = tvProfit,
+                tvItemCount = tvItemCount
+            )
+            // Clear search + return to cart view
+            etSearch.text?.clear()
+            etSearch.clearFocus()
+            hideKeyboard(etSearch)
+            flSearchResultsContainer.visibility = View.GONE
+            flCartContainer.visibility = View.VISIBLE
+        }
+        rvSearchResults.layoutManager = LinearLayoutManager(requireContext())
+        rvSearchResults.adapter = cartSearchAdapter
+
+        // ===== Cart adapter =====
+        cartAdapter = CartAdapter(
+            onQuantityChanged = { cartItem, newQty ->
+                cartItem.quantity = newQty
+            },
+            onPriceChanged = { cartItem, newPrice ->
+                cartItem.sellingPrice = newPrice
+            },
+            onRemove = { cartItem ->
+                cartItems.remove(cartItem)
+                refreshCartUI(llEmptyCart, llSummary, tvTotal, tvTotalCost, tvProfit, tvItemCount)
+            },
+            onCartUpdated = {
+                refreshCartUI(llEmptyCart, llSummary, tvTotal, tvTotalCost, tvProfit, tvItemCount)
+            }
+        )
+        rvCartItems.layoutManager = LinearLayoutManager(requireContext())
+        rvCartItems.adapter = cartAdapter
+
+        // Initial cart UI state
+        refreshCartUI(llEmptyCart, llSummary, tvTotal, tvTotalCost, tvProfit, tvItemCount)
+
+        // ===== Search bar with animated clear button =====
+        ivClearSearch.alpha = 0f
+        ivClearSearch.visibility = View.GONE
+
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s?.toString()?.trim().orEmpty()
+
+                if (query.isEmpty()) {
+                    // ===== No search → show cart, hide search area =====
+                    hideClearButtonWithFade(ivClearSearch)
+                    flSearchResultsContainer.visibility = View.GONE
+                    flCartContainer.visibility = View.VISIBLE
+                } else {
+                    // ===== Active search → show search area, hide cart =====
+                    showClearButtonWithFade(ivClearSearch)
+                    flCartContainer.visibility = View.GONE
+                    flSearchResultsContainer.visibility = View.VISIBLE
+                    performCartSearch(query, rvSearchResults, llNoSearchResults, tvNoResultsQuery)
+                }
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        // ===== Clear button — also clears focus + keyboard =====
+        ivClearSearch.setOnClickListener {
+            animateClearTap(ivClearSearch)
+            etSearch.text?.clear()
+            etSearch.clearFocus()
+            hideKeyboard(etSearch)
+            flSearchResultsContainer.visibility = View.GONE
+            flCartContainer.visibility = View.VISIBLE
+            llNoSearchResults.visibility = View.GONE
+            hideClearButtonWithFade(ivClearSearch)
+        }
+
+        // ===== Complete sale =====
+        btnCompleteSale.setOnClickListener {
+            completeCartSale(dialog)
+        }
+
+        dialog.setOnDismissListener {
+            cartBottomSheet = null
+            cartAdapter = null
+            cartSearchAdapter = null
+            cartItems.clear()
+        }
+
+        // Load items for search
+        loadAllItemsForCart()
+    }
+    private fun loadAllItemsForCart() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val items = sharedViewModel.getAllItemsOnce()
+                allItemsForCart.clear()
+                allItemsForCart.addAll(items.filter { it.stock > 0 })
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Filters the cart search list.
+     * - Shows the result list when there are matches.
+     * - Shows the "No products found for 'X'" empty state when there are none.
+     */
+    private fun performCartSearch(
+        query: String,
+        rvSearchResults: RecyclerView,
+        llNoSearchResults: LinearLayout,
+        tvNoResultsQuery: TextView
+    ) {
+        val filtered = allItemsForCart.filter { item ->
+            item.name.contains(query, ignoreCase = true) ||
+                    item.id.take(8).contains(query, ignoreCase = true)
+        }
+
+        cartSearchAdapter?.submitList(filtered)
+
+        if (filtered.isEmpty()) {
+            // No matches → show empty state with the query
+            rvSearchResults.visibility = View.GONE
+            llNoSearchResults.visibility = View.VISIBLE
+            tvNoResultsQuery.text = "No products found for \"$query\""
+        } else {
+            // Matches → show list, hide empty state
+            rvSearchResults.visibility = View.VISIBLE
+            llNoSearchResults.visibility = View.GONE
+        }
+    }
+    private fun addItemToCart(
+        item: Item,
+        llEmptyCart: LinearLayout,
+        llSummary: LinearLayout,
+        tvTotal: TextView,
+        tvTotalCost: TextView,
+        tvProfit: TextView,
+        tvItemCount: TextView
+    ) {
+        val existing = cartItems.find { it.item.id == item.id }
+
+        if (existing != null) {
+            if (existing.quantity < item.stock) {
+                existing.quantity++
+            } else {
+                "Already at max stock for ${item.name}".toastError(requireContext())
+                return
+            }
+        } else {
+            cartItems.add(
+                CartItem(
+                    item = item,
+                    quantity = 1,
+                    sellingPrice = item.sellingPrice
+                )
+            )
+        }
+
+        refreshCartUI(llEmptyCart, llSummary, tvTotal, tvTotalCost, tvProfit, tvItemCount)
+    }
+
+    private fun refreshCartUI(
+        llEmptyCart: LinearLayout,
+        llSummary: LinearLayout,
+        tvTotal: TextView,
+        tvTotalCost: TextView,
+        tvProfit: TextView,
+        tvItemCount: TextView
+    ) {
+        cartAdapter?.submitList(cartItems.toList())
+
+        if (cartItems.isEmpty()) {
+            llEmptyCart.visibility = View.VISIBLE
+            llSummary.visibility = View.GONE
+            tvItemCount.text = "0 items"
+        } else {
+            llEmptyCart.visibility = View.GONE
+            llSummary.visibility = View.VISIBLE
+
+            val total = cartItems.sumOf { it.totalPrice }
+            val cost = cartItems.sumOf { it.totalCost }
+            val profit = total - cost
+
+            tvTotal.text = "₹${String.format("%.0f", total)}"
+            tvTotalCost.text = "Cost: ₹${String.format("%.0f", cost)}"
+            tvProfit.text = "Profit: ₹${String.format("%.0f", profit)}"
+
+            val count = cartItems.sumOf { it.quantity }
+            tvItemCount.text = "$count item${if (count != 1) "s" else ""}"
+        }
+    }
+
+    private fun completeCartSale(dialog: BottomSheetDialog) {
+        if (cartItems.isEmpty()) {
+            "Cart is empty".toastError(requireContext())
+            return
+        }
+
+        // Validation
+        for (cartItem in cartItems) {
+            if (cartItem.quantity <= 0) {
+                "Invalid quantity for ${cartItem.item.name}".toastError(requireContext())
+                return
+            }
+            if (cartItem.quantity > cartItem.item.stock) {
+                "Not enough stock for ${cartItem.item.name}".toastError(requireContext())
+                return
+            }
+            if (cartItem.sellingPrice <= 0) {
+                "Invalid price for ${cartItem.item.name}".toastError(requireContext())
+                return
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val payload = cartItems.map { cartItem ->
+                    cartItem.item to (cartItem.quantity to cartItem.sellingPrice)
+                }
+                sharedViewModel.completeCartSale(payload)
+                dialog.dismiss()
+            } catch (e: Exception) {
+                "Sale failed: ${e.message}".toastError(requireContext())
+            }
+        }
+    }
+
+    // ============================================================
+    // SHARED CLEAR BUTTON HELPERS (fade + tap animations)
+    // ============================================================
+
+    private fun showClearButtonWithFade(view: View) {
+        if (view.visibility == View.VISIBLE && view.alpha == 1f) return
+        view.visibility = View.VISIBLE
+        view.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideClearButtonWithFade(view: View) {
+        if (view.visibility != View.VISIBLE) return
+        view.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction { view.visibility = View.GONE }
+            .start()
+    }
+
+    private fun animateClearTap(view: View) {
+        view.animate()
+            .scaleX(0.7f)
+            .scaleY(0.7f)
+            .setDuration(100)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(100)
+                    .start()
+            }
+            .start()
+    }
+
+    // ============================================================
+    // UTILITY
+    // ============================================================
+
+    private fun hideKeyboard(view: View) {
+        val imm = requireContext()
+            .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
     }
 }
