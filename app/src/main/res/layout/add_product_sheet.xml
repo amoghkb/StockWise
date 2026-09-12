@@ -15,6 +15,13 @@
         android:paddingTop="16dp"
         android:paddingBottom="24dp">
 
+        <View
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp"
+            android:background="#E0E0E0" />
+
         <!-- Menu Container -->
         <LinearLayout
             android:id="@+id/menuContainer"
@@ -620,8 +627,6 @@
             </LinearLayout>
 
             <!-- Image Selection -->
-
-            <!-- Image Selection -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -684,7 +689,9 @@
                         android:visibility="gone"
                         android:padding="4dp" />
                 </LinearLayout>
-            </LinearLayout>            <!-- Category Dropdown -->
+            </LinearLayout>
+
+            <!-- Category Dropdown -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -751,7 +758,6 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="18dp">
 
-                <!-- Original Price -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -779,7 +785,6 @@
                         android:textSize="16sp" />
                 </LinearLayout>
 
-                <!-- Selling Price -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -834,7 +839,8 @@
                     android:background="@drawable/rounded_edittext_bg"
                     android:textSize="16sp" />
             </LinearLayout>
-            <!-- ========== VEHICLE MULTI-SELECT DROPDOWN ========== -->
+
+            <!-- Vehicle Multi-Select Dropdown -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -868,7 +874,6 @@
                     android:drawableEnd="@drawable/ic_down_arrow"
                     android:drawablePadding="12dp" />
 
-                <!-- Selected Vehicles Chips Container -->
                 <LinearLayout
                     android:id="@+id/selectedVehiclesContainer"
                     android:layout_width="match_parent"
@@ -887,7 +892,6 @@
                         android:textColor="#666666"
                         android:layout_marginBottom="6dp" />
 
-                    <!-- Change this -->
                     <HorizontalScrollView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -903,6 +907,7 @@
                     </HorizontalScrollView>
                 </LinearLayout>
             </LinearLayout>
+
             <!-- Description -->
             <LinearLayout
                 android:layout_width="match_parent"

@@ -102,7 +102,6 @@ class DashboardFragment : Fragment() {
         setupClickListeners()
         observeData()
 
-        // Show skeleton on first load
         showSkeleton(true)
         sharedViewModel.refreshDashboardData()
     }
@@ -120,7 +119,6 @@ class DashboardFragment : Fragment() {
         rotateAnimator?.cancel()
         rotateAnimator = null
 
-        // Clean up cart references
         cartBottomSheet?.dismiss()
         cartBottomSheet = null
         cartAdapter = null
@@ -213,49 +211,41 @@ class DashboardFragment : Fragment() {
     // ============================================================
 
     private fun observeData() {
-        // Greeting
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.greeting.collect { greeting ->
                 binding.tvGreeting.text = greeting
             }
         }
 
-        // Date
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.currentDate.collect { date ->
                 binding.tvDate.text = date
             }
         }
 
-        // Today's sales
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.todaySales.collect { sales ->
                 binding.tvTodaySales.text = sales
             }
         }
 
-        // Stock alerts count
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.stockAlertsCount.collect { count ->
                 binding.tvStockAlerts.text = count
             }
         }
 
-        // Total items
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.totalItems.collect { total ->
                 binding.tvTotalItems.text = total
             }
         }
 
-        // Low stock items
-
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.lowStockItems.collect { items ->
                 lowStockAdapter.submitList(items)
                 binding.tvLowStockCount.text = "${items.size} items"
 
-                // ✅ Toggle empty state vs list
                 if (items.isEmpty()) {
                     binding.llEmptyLowStock.visibility = View.VISIBLE
                     binding.rvLowStock.visibility = View.GONE
@@ -268,15 +258,12 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // Weekly sales chart
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.weeklySalesData.collect { salesData ->
                 populateWeeklyBarChart(salesData)
             }
         }
 
-        // Loading state
-        // Loading state
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.isLoading.collect { isLoading ->
                 if (!isLoading) {
@@ -286,7 +273,6 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // Error state
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.error.collect { error ->
                 error?.let {
@@ -296,7 +282,6 @@ class DashboardFragment : Fragment() {
             }
         }
 
-        // Cart sale success event
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.saleSuccessEvent.collect { message ->
                 message?.let {
@@ -392,7 +377,6 @@ class DashboardFragment : Fragment() {
     // ============================================================
 
     private fun openCartSaleBottomSheet() {
-        // Reset cart
         cartItems.clear()
         allItemsForCart.clear()
 
@@ -402,15 +386,9 @@ class DashboardFragment : Fragment() {
 
         dialog.setContentView(view)
 
-        // ✅ Show FIRST — so internal layout pass doesn't override our settings
         dialog.show()
         cartBottomSheet = dialog
 
-        // ============================================================
-        // ✅ FORCE FULL PHONE HEIGHT
-        // ============================================================
-// ✅ FORCE FULL PHONE HEIGHT (edge-to-edge, no top gap)
-// ============================================================
         dialog.window?.let { window ->
             WindowCompat.setDecorFitsSystemWindows(window, false)
             window.setLayout(
@@ -432,7 +410,6 @@ class DashboardFragment : Fragment() {
             sheet.requestLayout()
         }
 
-// Paint the status-bar area white by padding the actual content view
         ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
             val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
             v.setPadding(v.paddingLeft, statusBarHeight, v.paddingRight, v.paddingBottom)
@@ -441,10 +418,11 @@ class DashboardFragment : Fragment() {
         dialog.behavior.apply {
             peekHeight = screenHeight
             isDraggable = true
-            isHideable = true        // ✅ allow swipe down to dismiss
+            isHideable = true
             skipCollapsed = true
             state = BottomSheetBehavior.STATE_EXPANDED
         }
+
         // ============================================================
         // BIND VIEWS
         // ============================================================
@@ -475,7 +453,6 @@ class DashboardFragment : Fragment() {
                 tvProfit = tvProfit,
                 tvItemCount = tvItemCount
             )
-            // Clear search + return to cart view
             etSearch.text?.clear()
             etSearch.clearFocus()
             hideKeyboard(etSearch)
@@ -486,15 +463,24 @@ class DashboardFragment : Fragment() {
         rvSearchResults.adapter = cartSearchAdapter
 
         // ===== Cart adapter =====
+        // FIX: replace items with .copy(...) instead of mutating in place,
+        // so DiffUtil can detect the change and rebind the row (updating
+        // tvCartQuantity immediately).
         cartAdapter = CartAdapter(
             onQuantityChanged = { cartItem, newQty ->
-                cartItem.quantity = newQty
+                val index = cartItems.indexOfFirst { it.item.id == cartItem.item.id }
+                if (index >= 0) {
+                    cartItems[index] = cartItems[index].copy(quantity = newQty)
+                }
             },
             onPriceChanged = { cartItem, newPrice ->
-                cartItem.sellingPrice = newPrice
+                val index = cartItems.indexOfFirst { it.item.id == cartItem.item.id }
+                if (index >= 0) {
+                    cartItems[index] = cartItems[index].copy(sellingPrice = newPrice)
+                }
             },
             onRemove = { cartItem ->
-                cartItems.remove(cartItem)
+                cartItems.removeAll { it.item.id == cartItem.item.id }
                 refreshCartUI(llEmptyCart, llSummary, tvTotal, tvTotalCost, tvProfit, tvItemCount)
             },
             onCartUpdated = {
@@ -504,7 +490,6 @@ class DashboardFragment : Fragment() {
         rvCartItems.layoutManager = LinearLayoutManager(requireContext())
         rvCartItems.adapter = cartAdapter
 
-        // Initial cart UI state
         refreshCartUI(llEmptyCart, llSummary, tvTotal, tvTotalCost, tvProfit, tvItemCount)
 
         // ===== Search bar with animated clear button =====
@@ -517,12 +502,10 @@ class DashboardFragment : Fragment() {
                 val query = s?.toString()?.trim().orEmpty()
 
                 if (query.isEmpty()) {
-                    // ===== No search → show cart, hide search area =====
                     hideClearButtonWithFade(ivClearSearch)
                     flSearchResultsContainer.visibility = View.GONE
                     flCartContainer.visibility = View.VISIBLE
                 } else {
-                    // ===== Active search → show search area, hide cart =====
                     showClearButtonWithFade(ivClearSearch)
                     flCartContainer.visibility = View.GONE
                     flSearchResultsContainer.visibility = View.VISIBLE
@@ -532,7 +515,6 @@ class DashboardFragment : Fragment() {
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        // ===== Clear button — also clears focus + keyboard =====
         ivClearSearch.setOnClickListener {
             animateClearTap(ivClearSearch)
             etSearch.text?.clear()
@@ -544,7 +526,6 @@ class DashboardFragment : Fragment() {
             hideClearButtonWithFade(ivClearSearch)
         }
 
-        // ===== Complete sale =====
         btnCompleteSale.setOnClickListener {
             completeCartSale(dialog)
         }
@@ -556,9 +537,9 @@ class DashboardFragment : Fragment() {
             cartItems.clear()
         }
 
-        // Load items for search
         loadAllItemsForCart()
     }
+
     private fun loadAllItemsForCart() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -571,11 +552,6 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    /**
-     * Filters the cart search list.
-     * - Shows the result list when there are matches.
-     * - Shows the "No products found for 'X'" empty state when there are none.
-     */
     private fun performCartSearch(
         query: String,
         rvSearchResults: RecyclerView,
@@ -590,16 +566,21 @@ class DashboardFragment : Fragment() {
         cartSearchAdapter?.submitList(filtered)
 
         if (filtered.isEmpty()) {
-            // No matches → show empty state with the query
             rvSearchResults.visibility = View.GONE
             llNoSearchResults.visibility = View.VISIBLE
             tvNoResultsQuery.text = "No products found for \"$query\""
         } else {
-            // Matches → show list, hide empty state
             rvSearchResults.visibility = View.VISIBLE
             llNoSearchResults.visibility = View.GONE
         }
     }
+
+    /**
+     * FIX: replace the item in `cartItems` with .copy(...) when bumping
+     * quantity, instead of mutating the existing CartItem in place. Combined
+     * with the new DiffUtil in CartAdapter, this makes the list-diff see
+     * the change and rebind the affected row.
+     */
     private fun addItemToCart(
         item: Item,
         llEmptyCart: LinearLayout,
@@ -609,11 +590,12 @@ class DashboardFragment : Fragment() {
         tvProfit: TextView,
         tvItemCount: TextView
     ) {
-        val existing = cartItems.find { it.item.id == item.id }
+        val index = cartItems.indexOfFirst { it.item.id == item.id }
 
-        if (existing != null) {
+        if (index >= 0) {
+            val existing = cartItems[index]
             if (existing.quantity < item.stock) {
-                existing.quantity++
+                cartItems[index] = existing.copy(quantity = existing.quantity + 1)
             } else {
                 "Already at max stock for ${item.name}".toastError(requireContext())
                 return
@@ -668,7 +650,6 @@ class DashboardFragment : Fragment() {
             return
         }
 
-        // Validation
         for (cartItem in cartItems) {
             if (cartItem.quantity <= 0) {
                 "Invalid quantity for ${cartItem.item.name}".toastError(requireContext())
@@ -698,7 +679,7 @@ class DashboardFragment : Fragment() {
     }
 
     // ============================================================
-    // SHARED CLEAR BUTTON HELPERS (fade + tap animations)
+    // SHARED CLEAR BUTTON HELPERS
     // ============================================================
 
     private fun showClearButtonWithFade(view: View) {

@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.stockwise.data.entities.DailySalesSummary
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
+import com.example.stockwise.data.entities.ProcurementEntity
 import com.example.stockwise.data.repository.ItemRepository
+import com.example.stockwise.data.repository.ProcurementRepository
 import com.example.stockwise.data.repository.SalesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SharedDataViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
-    private val salesRepository: SalesRepository
+    private val salesRepository: SalesRepository,
+    private val procurementRepository: ProcurementRepository
 ) : ViewModel() {
 
     // ===== DASHBOARD DATA =====
@@ -57,7 +61,6 @@ class SharedDataViewModel @Inject constructor(
     private val _lastRefreshTime = MutableStateFlow<Long>(0)
     val lastRefreshTime: StateFlow<Long> = _lastRefreshTime.asStateFlow()
 
-    // ===== SALES SUCCESS EVENT (for cart sale feedback) =====
     private val _saleSuccessEvent = MutableStateFlow<String?>(null)
     val saleSuccessEvent: StateFlow<String?> = _saleSuccessEvent.asStateFlow()
 
@@ -219,10 +222,6 @@ class SharedDataViewModel @Inject constructor(
     // CART SALE SUPPORT METHODS
     // ============================================================
 
-    /**
-     * Fetch all active items once (one-shot).
-     * Used by cart to populate search results.
-     */
     suspend fun getAllItemsOnce(): List<Item> {
         return try {
             itemRepository.getAllActiveItemsWithCategory().first().map { it.item }
@@ -232,9 +231,6 @@ class SharedDataViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Record a single sale line. Delegates to SalesRepository.
-     */
     suspend fun recordSale(
         itemId: String,
         itemName: String,
@@ -251,10 +247,6 @@ class SharedDataViewModel @Inject constructor(
         )
     }
 
-    /**
-     * Update item stock after sale.
-     * Uses the full Item entity fetched from repo to preserve all fields.
-     */
     suspend fun updateItemStock(itemId: String, newStock: Int) {
         try {
             val item = itemRepository.getItemById(itemId) ?: return
@@ -269,18 +261,12 @@ class SharedDataViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Complete a batch sale — used by Dashboard cart.
-     * Records every line and decrements stock for each item.
-     * Returns total revenue successfully processed.
-     */
     suspend fun completeCartSale(cartItems: List<Pair<Item, Pair<Int, Double>>>): Double {
         var totalRevenue = 0.0
 
         for ((item, qtyPrice) in cartItems) {
             val (quantity, price) = qtyPrice
             try {
-                // 1. Record sale
                 salesRepository.recordSale(
                     itemId = item.id,
                     itemName = item.name,
@@ -289,7 +275,6 @@ class SharedDataViewModel @Inject constructor(
                     originalPrice = item.originalPrice
                 )
 
-                // 2. Update stock
                 val freshItem = itemRepository.getItemById(item.id)
                 if (freshItem != null) {
                     itemRepository.updateItem(
@@ -306,11 +291,87 @@ class SharedDataViewModel @Inject constructor(
             }
         }
 
-        // Refresh dashboard after batch
         refreshDashboardData()
         _saleSuccessEvent.value = "Sale completed: ₹${
             String.format(Locale.getDefault(), "%.0f", totalRevenue)
         }"
         return totalRevenue
     }
+
+    // ============================================================
+    // PROCUREMENT SUPPORT
+    // ============================================================
+
+    suspend fun getProcurementItemsOnce(dateKey: String): List<ProcurementEntity> {
+        return try {
+            procurementRepository.getItemsForDateOnce(dateKey)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    fun getProcurementItemsFlow(dateKey: String): Flow<List<ProcurementEntity>> =
+        procurementRepository.getItemsForDate(dateKey)
+
+    suspend fun addProcurementItem(entity: ProcurementEntity): Long {
+        return try {
+            procurementRepository.addOrUpdate(entity)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            -1L
+        }
+    }
+
+    suspend fun insertProcurementItem(entity: ProcurementEntity): Long {
+        return try {
+            procurementRepository.insert(entity)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            -1L
+        }
+    }
+
+    suspend fun updateProcurementItem(entity: ProcurementEntity) {
+        try {
+            procurementRepository.updateItem(entity)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun deleteProcurementItem(entity: ProcurementEntity) {
+        try {
+            procurementRepository.deleteItem(entity)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun deleteProcurementById(id: Long) {
+        try {
+            procurementRepository.deleteById(id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun deleteProcurementForDate(dateKey: String) {
+        try {
+            procurementRepository.deleteForDate(dateKey)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun countProcurementForDate(dateKey: String): Int {
+        return try {
+            procurementRepository.countForDate(dateKey)
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    fun getAllProcurementDateKeys(): Flow<List<String>> =
+        procurementRepository.getAllActiveDateKeys()
 }

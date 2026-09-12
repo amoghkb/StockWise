@@ -3,6 +3,7 @@ package com.example.stockwise
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import com.example.stockwise.ui.fragment.BeltsFragment
 import com.example.stockwise.ui.fragment.CalendarFragment
 import com.example.stockwise.ui.fragment.DashboardFragment
@@ -33,12 +34,14 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) {
             showFragment(TAG_DASHBOARD)
         } else {
-            // After a config change, find whichever fragment is currently visible
-            // so we hide/show correctly on the next nav tap.
             activeFragment = supportFragmentManager.fragments.firstOrNull { it.isVisible }
         }
 
         bottomNavigationView.setOnItemSelectedListener { menuItem ->
+            // Close any nested fragment (e.g. StockProcureFragment inside CalendarFragment)
+            // before switching tabs, so the user always lands on the root screen.
+            closeNestedFragments()
+
             when (menuItem.itemId) {
                 R.id.nav_dashboard -> { showFragment(TAG_DASHBOARD); true }
                 R.id.nav_products -> { showFragment(TAG_PRODUCTS); true }
@@ -50,11 +53,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Adds each tab's fragment lazily on first visit, then just show()/hide()s it
-     * afterwards — the fragment (and its ViewModel, and its already-loaded data)
-     * stays alive in the FragmentManager instead of being torn down and rebuilt
-     * every time the user switches tabs.
+     * Clears any child fragments that the current tab (or its children) has
+     * pushed on its back stack. For example, if the Calendar tab is currently
+     * showing StockProcureFragment as a nested child, this removes it so the
+     * calendar root is restored before the tab switch happens.
      */
+    private fun closeNestedFragments() {
+        val current = activeFragment ?: return
+
+        // 1) Close children of the currently active tab fragment
+        val childFm = current.childFragmentManager
+        if (childFm.backStackEntryCount > 0) {
+            childFm.popBackStackImmediate(
+                null,
+                FragmentManager.POP_BACK_STACK_INCLUSIVE
+            )
+        }
+        // Belt-and-braces: remove any remaining children
+        childFm.fragments.toList().forEach { child ->
+            childFm.beginTransaction().remove(child).commitNowAllowingStateLoss()
+        }
+
+        // 2) Clear anything the active tab pushed on the *activity's* back stack
+        //    (covers fragments added via supportFragmentManager by the tab).
+        supportFragmentManager.popBackStackImmediate(
+            null,
+            FragmentManager.POP_BACK_STACK_INCLUSIVE
+        )
+    }
+
     private fun showFragment(tag: String) {
         val fm = supportFragmentManager
         if (activeFragment != null && fm.findFragmentByTag(tag) === activeFragment) return
@@ -83,7 +110,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadFragment(fragment: Fragment) {
-        // Kept for compatibility if referenced elsewhere; prefer showFragment().
         supportFragmentManager.beginTransaction()
             .replace(R.id.content_frame, fragment)
             .commit()
