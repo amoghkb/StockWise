@@ -63,4 +63,7 @@ class ProcurementRepository @Inject constructor(
 
     fun getAllActiveDateKeys(): Flow<List<String>> =
         procurementDao.getAllActiveDateKeys()
+
+    fun getActiveDateKeysForMonth(monthPrefix: String): Flow<List<String>> =
+        procurementDao.getActiveDateKeysForMonth(monthPrefix)
 }

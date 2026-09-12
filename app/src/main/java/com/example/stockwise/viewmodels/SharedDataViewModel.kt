@@ -374,4 +374,7 @@ class SharedDataViewModel @Inject constructor(
 
     fun getAllProcurementDateKeys(): Flow<List<String>> =
         procurementRepository.getAllActiveDateKeys()
+
+    fun getActiveDateKeysForMonth(monthPrefix: String): Flow<List<String>> =
+        procurementRepository.getActiveDateKeysForMonth(monthPrefix)
 }

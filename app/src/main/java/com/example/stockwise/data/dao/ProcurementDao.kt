@@ -104,4 +104,11 @@ interface ProcurementDao {
             insertItem(entity)
         }
     }
+    @Query("""
+    SELECT DISTINCT dateKey
+    FROM procurement_items
+    WHERE dateKey LIKE :monthPrefix || '%'
+    ORDER BY dateKey ASC
+""")
+    fun getActiveDateKeysForMonth(monthPrefix: String): Flow<List<String>>
 }
