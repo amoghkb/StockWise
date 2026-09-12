@@ -9,7 +9,59 @@
     android:padding="16dp"
     tools:context=".ui.fragment.CalendarFragment">
 
-    <!-- Library calendar view -->
+    <!-- ============================================================ -->
+    <!-- Month / Year header with prev + next arrows                  -->
+    <!-- ============================================================ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="8dp">
+
+        <ImageButton
+            android:id="@+id/btnPrevMonth"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_chevron_left"
+            android:scaleType="centerInside"
+            android:contentDescription="Previous month" />
+
+        <TextView
+            android:id="@+id/tvMonthYear"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            tools:text="September 2026" />
+
+        <ImageButton
+            android:id="@+id/btnNextMonth"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_chevron_right"
+            android:scaleType="centerInside"
+            android:contentDescription="Next month" />
+    </LinearLayout>
+
+    <!-- ============================================================ -->
+    <!-- Weekday header row (Mon Tue Wed ...) — populated in code     -->
+    <!-- ============================================================ -->
+    <LinearLayout
+        android:id="@+id/weekdayHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="6dp" />
+
+    <!-- ============================================================ -->
+    <!-- Library calendar view                                        -->
+    <!-- ============================================================ -->
     <com.kizitonwose.calendar.view.CalendarView
         android:id="@+id/calendarView"
         android:layout_width="match_parent"
@@ -73,11 +125,6 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <ImageView
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:alpha="0.35"
-            android:src="@drawable/ic_calendar" />
 
         <TextView
             android:layout_width="wrap_content"

@@ -1,11 +1,15 @@
 package com.example.stockwise.ui.fragment
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -26,8 +30,11 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Locale
 
@@ -49,6 +56,12 @@ class CalendarFragment : Fragment() {
 
     /** Set of LocalDates that have procurement data — used by DayBinder for dots. */
     private var activeDatesForCurrentMonth: Set<LocalDate> = emptySet()
+
+    private val monthTitleFormatter =
+        DateTimeFormatter.ofPattern("MMMM yyyy", Locale.US)
+
+    /** Today's date, cached. Recomputed in onResume in case the app stays open past midnight. */
+    private var today: LocalDate = LocalDate.now()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -76,9 +89,28 @@ class CalendarFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh when returning from StockProcureFragment after a save.
-        if (currentMonthPrefix.isNotEmpty()) {
-            observeMonth(currentMonthPrefix)
+
+        // Refresh today's date (in case we crossed midnight).
+        val newToday = LocalDate.now()
+        val dayChanged = newToday != today
+        today = newToday
+
+        // Always snap back to the current month when the fragment becomes visible,
+        // so returning from another screen lands on "this month with today highlighted".
+        val currentMonth = YearMonth.now()
+        binding.calendarView.scrollToMonth(currentMonth)
+
+        // Refresh the data for the current month.
+        val prefix = monthPrefixOf(currentMonth.year, currentMonth.monthValue)
+        if (prefix != currentMonthPrefix) {
+            currentMonthPrefix = prefix
+            binding.tvMonthYear.text = currentMonth.format(monthTitleFormatter)
+        }
+        observeMonth(prefix)
+
+        // If the day changed while we were away, redraw so the "today" circle moves.
+        if (dayChanged) {
+            binding.calendarView.notifyCalendarChanged()
         }
     }
 
@@ -102,30 +134,62 @@ class CalendarFragment : Fragment() {
         // 1. Setup range + first day of week
         binding.calendarView.setup(startMonth, endMonth, firstDayOfWeek)
 
-        // 2. Day binder: renders each day cell
+        // 2. Weekday header row (Mon Tue Wed ...) — library doesn't draw this
+        setupWeekdayHeader(daysOfWeek())
+
+        // 3. Prev / Next month arrows
+        binding.btnPrevMonth.setOnClickListener {
+            binding.calendarView.findFirstVisibleMonth()?.let {
+                binding.calendarView.scrollToMonth(it.yearMonth.minusMonths(1))
+            }
+        }
+        binding.btnNextMonth.setOnClickListener {
+            binding.calendarView.findFirstVisibleMonth()?.let {
+                binding.calendarView.scrollToMonth(it.yearMonth.plusMonths(1))
+            }
+        }
+
+        // 4. Day binder: renders each day cell
         binding.calendarView.dayBinder = object : MonthDayBinder<DayViewContainer> {
             override fun create(view: View) = DayViewContainer(view)
 
             override fun bind(container: DayViewContainer, day: CalendarDay) {
-                container.textView.text = day.date.dayOfMonth.toString()
+                val date = day.date
+                container.textView.text = date.dayOfMonth.toString()
 
-                // Grey out days belonging to adjacent months
+                val isToday = (date == today)
+                val isCurrentMonth = (day.position == DayPosition.MonthDate)
+
+                // ----- Text color -----
                 container.textView.setTextColor(
-                    if (day.position == DayPosition.MonthDate) Color.BLACK else Color.LTGRAY
+                    when {
+                        isToday -> Color.WHITE                              // white on blue circle
+                        isCurrentMonth -> Color.BLACK                       // normal day
+                        else -> Color.LTGRAY                                // adjacent month day
+                    }
                 )
 
-                // Dot visibility based on whether this date has procurement data
+                // ----- Background (today gets a blue circle) -----
+                if (isToday) {
+                    container.textView.background = todayCircleDrawable()
+                    container.textView.setTypeface(null, android.graphics.Typeface.BOLD)
+                } else {
+                    container.textView.background = null
+                    container.textView.setTypeface(null, android.graphics.Typeface.NORMAL)
+                }
+
+                // ----- Dot for scheduled procurement -----
                 container.dotView.visibility =
-                    if (activeDatesForCurrentMonth.contains(day.date)) View.VISIBLE
+                    if (activeDatesForCurrentMonth.contains(date)) View.VISIBLE
                     else View.INVISIBLE
 
-                // Tap a day → open StockProcureFragment for that date
+                // ----- Tap a day → open StockProcureFragment -----
                 container.textView.setOnClickListener {
                     val cal = Calendar.getInstance().apply {
                         set(
-                            day.date.year,
-                            day.date.monthValue - 1,  // Calendar month is 0-indexed
-                            day.date.dayOfMonth,
+                            date.year,
+                            date.monthValue - 1,  // Calendar month is 0-indexed
+                            date.dayOfMonth,
                             0, 0, 0
                         )
                         set(Calendar.MILLISECOND, 0)
@@ -135,19 +199,51 @@ class CalendarFragment : Fragment() {
             }
         }
 
-        // 3. Month scroll listener: reliably fires when a new month settles
+        // 5. Month scroll listener: reliably fires when a new month settles
         binding.calendarView.monthScrollListener = { calendarMonth ->
-            val monthPrefix = monthPrefixOf(
-                calendarMonth.yearMonth.year,
-                calendarMonth.yearMonth.monthValue
-            )
+            val yearMonth = calendarMonth.yearMonth
+
+            // Update the month/year title
+            binding.tvMonthYear.text = yearMonth.format(monthTitleFormatter)
+
+            val monthPrefix = monthPrefixOf(yearMonth.year, yearMonth.monthValue)
             currentMonthPrefix = monthPrefix
             observeMonth(monthPrefix)
         }
 
-        // 4. Jump to current month. This also triggers monthScrollListener.
+        // 6. Jump to current month. This also triggers monthScrollListener.
         binding.calendarView.scrollToMonth(currentMonth)
     }
+
+    /**
+     * Builds the Mon/Tue/Wed... header row above the calendar.
+     * The kizitonwose CalendarView does not draw a weekday header by itself.
+     */
+    private fun setupWeekdayHeader(days: List<DayOfWeek>) {
+        binding.weekdayHeader.removeAllViews()
+        val labels = days.map { it.getDisplayName(TextStyle.SHORT, Locale.US) }
+        labels.forEach { label ->
+            val tv = TextView(requireContext()).apply {
+                text = label
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+                setTextColor(Color.GRAY)
+                textSize = 12f
+            }
+            binding.weekdayHeader.addView(tv)
+        }
+    }
+
+    /** Blue oval background used to highlight today's date. */
+    private fun todayCircleDrawable(): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(ContextCompat.getColor(requireContext(), R.color.today_highlight))
+        }
 
     // ============================================================
     // MONTH COLLECTION
