@@ -6,9 +6,11 @@ import com.example.stockwise.data.entities.DailySalesSummary
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemWithCategoryAndVehicles
 import com.example.stockwise.data.entities.ProcurementEntity
+import com.example.stockwise.data.entities.Supplier
 import com.example.stockwise.data.repository.ItemRepository
 import com.example.stockwise.data.repository.ProcurementRepository
 import com.example.stockwise.data.repository.SalesRepository
+import com.example.stockwise.data.repository.SupplierRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +28,8 @@ import javax.inject.Inject
 class SharedDataViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val salesRepository: SalesRepository,
-    private val procurementRepository: ProcurementRepository
+    private val procurementRepository: ProcurementRepository,
+    private val supplierRepository: SupplierRepository
 ) : ViewModel() {
 
     // ===== DASHBOARD DATA =====
@@ -377,4 +380,38 @@ class SharedDataViewModel @Inject constructor(
 
     fun getActiveDateKeysForMonth(monthPrefix: String): Flow<List<String>> =
         procurementRepository.getActiveDateKeysForMonth(monthPrefix)
+    // ============================================================
+    // SUPPLIER SUPPORT
+    // ============================================================
+
+    /**
+     * Live stream of active suppliers. When [query] is blank,
+     * returns all active suppliers. Otherwise filters by name/contact/category/phone.
+     */
+    fun getSuppliersFlow(query: String = ""): Flow<List<Supplier>> =
+        supplierRepository.searchActiveSuppliers(query)
+
+    /** Insert a new supplier. Returns the newly created supplier's ID. */
+    suspend fun addSupplier(
+        companyName: String,
+        category: String = "General",
+        contactPerson: String? = null,
+        phoneNumber: String? = null,
+        address: String? = null
+    ): String = supplierRepository.insertSupplier(
+        companyName = companyName,
+        category = category,
+        contactPerson = contactPerson,
+        phoneNumber = phoneNumber,
+        address = address
+    )
+
+    /** Soft delete a supplier. */
+    suspend fun deleteSupplier(supplierId: String) {
+        supplierRepository.softDeleteSupplier(supplierId)
+    }
+
+    /** Count of active suppliers (used for the "Total Registered Vendors" stat). */
+    suspend fun getSupplierCount(): Int = supplierRepository.getActiveSupplierCount()
+
 }

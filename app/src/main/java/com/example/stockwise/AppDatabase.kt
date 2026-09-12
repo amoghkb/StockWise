@@ -10,16 +10,18 @@ import com.example.stockwise.data.dao.CategoryDao
 import com.example.stockwise.data.dao.ItemDao
 import com.example.stockwise.data.dao.ProcurementDao
 import com.example.stockwise.data.dao.SaleDao
+import com.example.stockwise.data.dao.SupplierDao
 import com.example.stockwise.data.dao.VehicleDao
 import com.example.stockwise.data.entities.Category
 import com.example.stockwise.data.entities.Item
 import com.example.stockwise.data.entities.ItemVehicleRelation
 import com.example.stockwise.data.entities.ProcurementEntity
 import com.example.stockwise.data.entities.Sale
+import com.example.stockwise.data.entities.Supplier
 import com.example.stockwise.data.entities.Vehicle
 
 @Database(
-    entities = [Category::class, Item::class, Vehicle::class, ItemVehicleRelation::class, Sale::class, ProcurementEntity::class  ],
+    entities = [Category::class, Item::class, Vehicle::class, ItemVehicleRelation::class, Sale::class, ProcurementEntity::class, Supplier::class],
     version = 1,
     exportSchema = false
 )
@@ -31,6 +33,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vehicleDao(): VehicleDao
     abstract fun saleDao(): SaleDao
     abstract fun procurementDao(): ProcurementDao
+    abstract fun supplierDao(): SupplierDao
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null

@@ -9,6 +9,7 @@ import com.example.stockwise.data.dao.ProcurementDao
 import com.example.stockwise.data.dao.SaleDao
 import com.example.stockwise.data.dao.VehicleDao
 import dagger.Module
+import com.example.stockwise.data.dao.SupplierDao            // <-- ADDED
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -58,4 +59,9 @@ object DatabaseModule {
     @Singleton
     fun provideProcurementDao(database: AppDatabase): ProcurementDao =
         database.procurementDao()
+
+    @Provides
+    @Singleton
+    fun provideSupplierDao(database: AppDatabase): SupplierDao =    // <-- ADDED
+        database.supplierDao()
 }
