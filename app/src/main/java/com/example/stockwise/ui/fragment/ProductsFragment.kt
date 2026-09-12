@@ -3,6 +3,9 @@ package com.example.stockwise.ui.fragment
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Canvas
+import android.app.Dialog
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -27,7 +30,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.example.stockwise.R
@@ -157,8 +162,207 @@ class ProductsFragment : Fragment() {
             adapter = productsAdapter
             setHasFixedSize(true)
         }
+
+        // Swipe right on a category header → confirm delete
+        attachSwipeToDelete()
     }
 
+    // ==============================
+    // SWIPE RIGHT TO DELETE CATEGORY
+    // ==============================
+
+    private fun attachSwipeToDelete() {
+        val callback = object : ItemTouchHelper.SimpleCallback(
+            0,                     // no drag
+            ItemTouchHelper.RIGHT  // swipe right only
+        ) {
+
+            override fun getSwipeDirs(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                // Only category headers are swipeable.
+                return if (productsAdapter.isHeaderAt(viewHolder.bindingAdapterPosition)) {
+                    super.getSwipeDirs(recyclerView, viewHolder)
+                } else {
+                    0
+                }
+            }
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.bindingAdapterPosition
+                val categoryId = productsAdapter.headerCategoryIdAt(position) ?: return
+
+                // Snap the row back before showing the dialog.
+                viewHolder.itemView.translationX = 0f
+                productsAdapter.notifyItemChanged(position)
+
+                showDeleteCategoryDialog(categoryId)
+            }
+
+            override fun onChildDraw(
+                c: Canvas,
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                dX: Float,
+                dY: Float,
+                actionState: Int,
+                isCurrentlyActive: Boolean
+            ) {
+                val itemView = viewHolder.itemView
+                val ctx = itemView.context
+
+                // --- Tune these three values to match your category card ---
+                val insetHorizontal = dp(4)   // space on left & right of the red panel
+                val insetVertical   = dp(2)   // space on top & bottom of the red panel
+                // ------------------------------------------------------------
+
+                val left = itemView.left + insetHorizontal
+                val right = (itemView.left + dX.toInt())
+                    .coerceAtMost(itemView.right - insetHorizontal)
+                val top = itemView.top + insetVertical
+                val bottom = itemView.bottom - insetVertical
+
+                if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE && dX > 0 && right > left) {
+                    // Red rounded panel behind the row
+                    val bg = ContextCompat.getDrawable(ctx, R.drawable.bg_swipe_delete)
+                    bg?.setBounds(left, top, right, bottom)
+                    bg?.draw(c)
+
+                    // Trash icon centered in the revealed area
+                    val icon = ContextCompat.getDrawable(ctx, R.drawable.ic_delete)?.mutate()?.apply {
+                        setTint(Color.WHITE)
+                    }
+                    val iconSize = dp(22)
+                    val centerX = (left + right) / 2
+                    val centerY = (top + bottom) / 2
+                    icon?.setBounds(
+                        centerX - iconSize / 2,
+                        centerY - iconSize / 2,
+                        centerX + iconSize / 2,
+                        centerY + iconSize / 2
+                    )
+                    icon?.draw(c)
+                }
+
+                super.onChildDraw(
+                    c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive
+                )
+            }
+
+            override fun clearView(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ) {
+                super.clearView(recyclerView, viewHolder)
+                viewHolder.itemView.translationX = 0f
+            }
+
+            override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float = 0.4f
+
+            override fun getSwipeEscapeVelocity(defaultValue: Float): Float =
+                defaultValue * 1.5f
+        }
+
+        ItemTouchHelper(callback).attachToRecyclerView(binding.rvProducts)
+    }
+
+    // ==============================
+    // DELETE CATEGORY DIALOG
+    // ==============================
+
+    private fun showDeleteCategoryDialog(categoryId: String) {
+        val category = viewModel.categories.value.find { it.id == categoryId } ?: return
+
+        // Guard: block deleting the fallback category.
+        if (category.name.equals(ProductsViewModel.DEFAULT_CATEGORY_NAME, ignoreCase = true)) {
+            "The Default category cannot be deleted.".toastError(requireContext())
+            return
+        }
+
+        val itemCount = viewModel.items.value.count { it.item.categoryId == categoryId }
+        val hasItems = itemCount > 0
+
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_delete_category, null)
+
+        val tvDialogTitle = dialogView.findViewById<TextView>(R.id.tvDialogTitle)
+        val tvMessage = dialogView.findViewById<TextView>(R.id.tvDialogMessage)
+        val optionsContainer = dialogView.findViewById<LinearLayout>(R.id.optionsContainer)
+        val optionMoveContainer = dialogView.findViewById<LinearLayout>(R.id.optionMoveContainer)
+        val optionDeleteContainer = dialogView.findViewById<LinearLayout>(R.id.optionDeleteContainer)
+        val rbMove = dialogView.findViewById<RadioButton>(R.id.rbMoveItems)
+        val rbDelete = dialogView.findViewById<RadioButton>(R.id.rbDeleteItems)
+        val tvDeleteTitle = dialogView.findViewById<TextView>(R.id.tvDeleteTitle)
+        val btnCancel = dialogView.findViewById<TextView>(R.id.btnCancel)
+        val btnDelete = dialogView.findViewById<TextView>(R.id.btnDeleteCategory)
+
+        // Explicit text — never rely on the XML default
+        tvDialogTitle.text = "Delete Category"
+        btnDelete.text = "Delete Category"
+
+        if (hasItems) {
+            tvMessage.text =
+                "Are you sure you want to delete ${category.name}? ($itemCount item${if (itemCount != 1) "s" else ""})"
+            tvDeleteTitle.text =
+                "Delete category and all $itemCount item${if (itemCount != 1) "s" else ""}"
+
+            fun applySelectedState(moveSelected: Boolean) {
+                rbMove.isChecked = moveSelected
+                rbDelete.isChecked = !moveSelected
+
+                optionMoveContainer.background = ContextCompat.getDrawable(
+                    requireContext(),
+                    if (moveSelected) R.drawable.bg_option_selected else R.drawable.bg_option_unselected
+                )
+                optionDeleteContainer.background = ContextCompat.getDrawable(
+                    requireContext(),
+                    if (moveSelected) R.drawable.bg_option_unselected else R.drawable.bg_option_selected
+                )
+            }
+
+            applySelectedState(moveSelected = true)
+            optionMoveContainer.setOnClickListener { applySelectedState(true) }
+            optionDeleteContainer.setOnClickListener { applySelectedState(false) }
+        } else {
+            tvMessage.text =
+                "Are you sure you want to delete ${category.name}?\n\nThis cannot be undone."
+            optionsContainer.visibility = View.GONE
+        }
+
+        val dialog = android.app.Dialog(requireContext())
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(dialogView)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            val width = (resources.displayMetrics.widthPixels * 0.92).toInt()
+            setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnDelete.setOnClickListener {
+            if (!hasItems) {
+                viewModel.deleteCategoryAndItems(categoryId)
+            } else if (rbMove.isChecked) {
+                viewModel.deleteCategoryAndMoveItems(categoryId)
+            } else {
+                viewModel.deleteCategoryAndItems(categoryId)
+            }
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
     // ==============================
     // MAIN SEARCH WITH CLEAR BUTTON
     // ==============================
@@ -209,7 +413,6 @@ class ProductsFragment : Fragment() {
 
     private fun showClearButtonWithFade(view: View) {
         if (view.visibility == View.VISIBLE && view.alpha == 1f) return
-
         view.visibility = View.VISIBLE
         view.animate()
             .alpha(1f)
@@ -220,14 +423,11 @@ class ProductsFragment : Fragment() {
 
     private fun hideClearButtonWithFade(view: View) {
         if (view.visibility != View.VISIBLE) return
-
         view.animate()
             .alpha(0f)
             .setDuration(200)
             .setInterpolator(AccelerateDecelerateInterpolator())
-            .withEndAction {
-                view.visibility = View.GONE
-            }
+            .withEndAction { view.visibility = View.GONE }
             .start()
     }
 
@@ -248,12 +448,10 @@ class ProductsFragment : Fragment() {
 
     private fun handleClearTouch(view: View, event: android.view.MotionEvent): Boolean {
         when (event.action) {
-            android.view.MotionEvent.ACTION_DOWN -> {
+            android.view.MotionEvent.ACTION_DOWN ->
                 view.animate().scaleX(0.85f).scaleY(0.85f).setDuration(50).start()
-            }
-            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL ->
                 view.animate().scaleX(1f).scaleY(1f).setDuration(50).start()
-            }
         }
         return false
     }
@@ -284,11 +482,8 @@ class ProductsFragment : Fragment() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (s.isNullOrEmpty()) {
-                    hideClearButtonWithFade(clearButton)
-                } else {
-                    showClearButtonWithFade(clearButton)
-                }
+                if (s.isNullOrEmpty()) hideClearButtonWithFade(clearButton)
+                else showClearButtonWithFade(clearButton)
             }
 
             override fun afterTextChanged(s: Editable?) {}
@@ -299,7 +494,6 @@ class ProductsFragment : Fragment() {
             searchEditText.text?.clear()
             val parent = searchEditText.parent as? ViewGroup
             val tvEmptyState = parent?.findViewById<TextView>(R.id.tvEmptyState)
-            // This will now sort the vehicles with selected ones on top
             filterVehicles("", tvEmptyState)
             hideClearButtonWithFade(clearButton)
         }
@@ -318,11 +512,8 @@ class ProductsFragment : Fragment() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (s.isNullOrEmpty()) {
-                    hideClearButtonWithFade(clearButton)
-                } else {
-                    showClearButtonWithFade(clearButton)
-                }
+                if (s.isNullOrEmpty()) hideClearButtonWithFade(clearButton)
+                else showClearButtonWithFade(clearButton)
             }
 
             override fun afterTextChanged(s: Editable?) {}
@@ -381,6 +572,16 @@ class ProductsFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.categoryDeleteSuccess.collect { success ->
+                if (success) {
+                    "Category deleted".toastSuccess(requireContext())
+                    viewModel.clearCategoryDeleteSuccess()
+                    sharedViewModel.refreshDashboardData()
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.error.collect { error ->
                 error?.let {
                     it.toastError(requireContext())
@@ -434,16 +635,43 @@ class ProductsFragment : Fragment() {
     // ==============================
 
     private fun openImagePicker() {
-        val options = arrayOf("Camera", "Gallery")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Select Image")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> openCamera()
-                    1 -> openGallery()
-                }
-            }
-            .show()
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_choice, null)
+
+        val tvDialogTitle = dialogView.findViewById<TextView>(R.id.tvDialogTitle)
+        val tvMessage = dialogView.findViewById<TextView>(R.id.tvDialogMessage)
+        val optionCamera = dialogView.findViewById<LinearLayout>(R.id.optionCamera)
+        val optionGallery = dialogView.findViewById<LinearLayout>(R.id.optionGallery)
+        val btnCancel = dialogView.findViewById<TextView>(R.id.btnCancel)
+
+        tvDialogTitle.text = "Select Image"
+        tvMessage.text = "Choose a source for your photo."
+
+        val dialog = Dialog(requireContext())
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(dialogView)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            val width = (resources.displayMetrics.widthPixels * 0.92).toInt()
+            setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        optionCamera.setOnClickListener {
+            dialog.dismiss()
+            openCamera()
+        }
+
+        optionGallery.setOnClickListener {
+            dialog.dismiss()
+            openGallery()
+        }
+
+        dialog.show()
     }
 
     private fun openCamera() {
@@ -549,10 +777,9 @@ class ProductsFragment : Fragment() {
         currentSheetBinding?.let { binding ->
             selectedImageUri?.let { uri ->
                 try {
-                    // Use Glide with smooth rounded corners (8dp)
                     Glide.with(requireContext())
                         .load(uri)
-                        .transform(RoundedCorners(8))  // Changed from 24 to 8
+                        .transform(RoundedCorners(8))
                         .centerCrop()
                         .placeholder(R.drawable.ic_image)
                         .error(R.drawable.ic_image)
@@ -560,9 +787,7 @@ class ProductsFragment : Fragment() {
 
                     binding.tvTapToSelect.text = "Change Image"
                     binding.ivDeleteImage.visibility = View.VISIBLE
-                    binding.ivDeleteImage.setOnClickListener {
-                        deleteSelectedImage()
-                    }
+                    binding.ivDeleteImage.setOnClickListener { deleteSelectedImage() }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     "Failed to load image".toastError(requireContext())
@@ -570,21 +795,17 @@ class ProductsFragment : Fragment() {
             }
         }
     }
+
     private fun deleteSelectedImage() {
         currentSheetBinding?.let { binding ->
-            // Clear the selected image
             selectedImageUri = null
-
-            // Reset the image view to placeholder
             binding.ivItemImage.setImageResource(R.drawable.ic_image)
             binding.tvTapToSelect.text = "Tap to select image"
-
-            // Hide the delete button
             binding.ivDeleteImage.visibility = View.GONE
-
             "Image removed".toastSuccess(requireContext())
         }
     }
+
     private fun saveImageToInternalStorage(uri: Uri): String? {
         try {
             val context = requireContext()
@@ -663,7 +884,6 @@ class ProductsFragment : Fragment() {
 
             sheetBinding.ivItemImage.setImageResource(R.drawable.ic_image)
             sheetBinding.tvTapToSelect.text = "Tap to select image"
-            // ===== ADD THIS: Hide delete button initially =====
             sheetBinding.ivDeleteImage.visibility = View.GONE
             sheetBinding.ivDeleteImage.setOnClickListener(null)
 
@@ -672,6 +892,7 @@ class ProductsFragment : Fragment() {
 
         sheet.show(parentFragmentManager, "AddProductSheet")
     }
+
     private fun loadVehiclesForDropdown() {
         lifecycleScope.launch {
             try {
@@ -694,13 +915,10 @@ class ProductsFragment : Fragment() {
         binding.btnCancel.setOnClickListener { dismissSheet(binding, sheet) }
 
         binding.btnBackToMenu.setOnClickListener {
-            showMenu(binding)
-            clearCategoryForm(binding)
+            showMenu(binding); clearCategoryForm(binding)
         }
-
         binding.btnBackToMenuFromVehicle.setOnClickListener {
-            showMenu(binding)
-            clearVehicleForm(binding)
+            showMenu(binding); clearVehicleForm(binding)
         }
 
         binding.btnCategoryCancel.setOnClickListener { dismissSheet(binding, sheet) }
@@ -710,16 +928,13 @@ class ProductsFragment : Fragment() {
         binding.btnSaveVehicle.setOnClickListener { saveVehicle(binding, sheet) }
 
         binding.btnBackToMenuFromItem.setOnClickListener {
-            showMenu(binding)
-            clearItemForm(binding)
+            showMenu(binding); clearItemForm(binding)
         }
 
         binding.btnItemCancel.setOnClickListener { dismissSheet(binding, sheet) }
         binding.btnSaveItem.setOnClickListener { saveItem(binding, sheet) }
 
-        binding.btnSelectImage.setOnClickListener {
-            checkPermissionAndOpenPicker()
-        }
+        binding.btnSelectImage.setOnClickListener { checkPermissionAndOpenPicker() }
     }
 
     private fun preventAutoFocus(binding: AddProductSheetBinding) {
@@ -828,9 +1043,8 @@ class ProductsFragment : Fragment() {
         binding.etItemDescription.text?.clear()
         binding.ivItemImage.setImageResource(R.drawable.ic_image)
         binding.tvTapToSelect.text = "Tap to select image"
-        // ===== ADD THIS: Hide delete button =====
         binding.ivDeleteImage.visibility = View.GONE
-        binding.ivDeleteImage.setOnClickListener(null) // Remove click listener
+        binding.ivDeleteImage.setOnClickListener(null)
         selectedImageUri = null
         selectedVehicles.clear()
         updateVehicleChips()
@@ -838,6 +1052,7 @@ class ProductsFragment : Fragment() {
         bottomSheetDropdownPopup?.dismiss()
         vehicleDropdownPopup?.dismiss()
     }
+
     // ==============================
     // VEHICLE MULTI-SELECT DROPDOWN
     // ==============================
@@ -879,7 +1094,6 @@ class ProductsFragment : Fragment() {
         val typeChipsContainer = popupView.findViewById<LinearLayout>(R.id.vehicleTypeChipsContainer)
         val ivClearSearch = popupView.findViewById<ImageView>(R.id.ivClearVehicleSearch)
 
-        // Setup clear button for vehicle search
         setupVehiclePopupClearButton(searchEditText, ivClearSearch)
 
         filteredVehicles.clear()
@@ -936,7 +1150,6 @@ class ProductsFragment : Fragment() {
             popupView.measure(widthSpec, heightSpec)
 
             val contentHeight = popupView.measuredHeight + dp(20)
-
             val location = IntArray(2)
             binding.etVehicles.getLocationOnScreen(location)
 
@@ -1048,10 +1261,7 @@ class ProductsFragment : Fragment() {
 
             val currentQuery = searchEditText.text.toString()
 
-            // If "All" chip is selected, show without sorting (original order)
-            // If a specific type is selected, sort with selected vehicles on top
             if (isAllChip) {
-                // Show all vehicles in original order when "All" is selected
                 val filtered = allVehicles.filter { vehicle ->
                     currentQuery.isEmpty() ||
                             vehicle.name.contains(currentQuery, ignoreCase = true) ||
@@ -1100,7 +1310,6 @@ class ProductsFragment : Fragment() {
     }
 
     private fun filterVehicles(query: String, tvEmptyState: TextView?) {
-        // First, filter vehicles based on search query
         val filtered = allVehicles.filter { vehicle ->
             query.isEmpty() ||
                     vehicle.name.contains(query, ignoreCase = true) ||
@@ -1108,17 +1317,14 @@ class ProductsFragment : Fragment() {
                     (vehicle.model?.contains(query, ignoreCase = true) == true)
         }
 
-        // Then, sort the filtered list: selected vehicles first, then unselected
         val sortedFiltered = filtered.sortedWith(compareByDescending<Vehicle> {
             selectedVehicles.contains(it)
         }.thenBy { it.name })
 
-        // Update the adapter with sorted list
         vehicleAdapter?.updateList(sortedFiltered)
-
-        // Show/hide empty state
         tvEmptyState?.visibility = if (sortedFiltered.isEmpty()) View.VISIBLE else View.GONE
     }
+
     private fun updateVehicleSelectionUI(tvSelectedCount: TextView?) {
         val count = selectedVehicles.size
         tvSelectedCount?.text = "$count vehicle${if (count != 1) "s" else ""} selected"
@@ -1200,7 +1406,6 @@ class ProductsFragment : Fragment() {
         bottomSheetListView = popupView.findViewById(R.id.lvCategories)
         val ivClearSearch = popupView.findViewById<ImageView>(R.id.ivClearCategorySearch)
 
-        // Setup clear button for category search
         setupCategoryPopupClearButton(bottomSheetSearchEditText!!, ivClearSearch)
 
         bottomSheetFilteredCategories = categories.toMutableList()

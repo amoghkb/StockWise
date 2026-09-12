@@ -56,6 +56,11 @@ class CategoryRepository @Inject constructor(
         return categoryDao.getActiveCategoryById(categoryId)
     }
 
+    /** NEW: lookup used by the "move to Default" flow. */
+    suspend fun getCategoryByName(name: String): Category? {
+        return categoryDao.getActiveCategoryByName(name)
+    }
+
     fun searchActiveCategories(query: String): Flow<List<Category>> {
         return if (query.isBlank()) {
             categoryDao.getAllActiveCategories()

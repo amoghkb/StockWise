@@ -95,9 +95,8 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :itemId AND isDeleted = 0")
     suspend fun getItemById(itemId: String): Item?
 
-    // ==================== NEW VEHICLE RELATIONSHIP METHODS ====================
+    // ==================== VEHICLE RELATIONSHIP METHODS ====================
 
-    // Get items with their vehicles (with category name too)
     @Transaction
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -117,7 +116,6 @@ interface ItemDao {
     """)
     suspend fun getActiveItemWithVehiclesById(itemId: String): ItemWithCategoryAndVehicles?
 
-    // Get items by category with their vehicles
     @Transaction
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -127,7 +125,6 @@ interface ItemDao {
     """)
     fun getActiveItemsByCategoryWithVehicles(categoryId: String): Flow<List<ItemWithCategoryAndVehicles>>
 
-    // Search items with their vehicles
     @Transaction
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -141,7 +138,6 @@ interface ItemDao {
     """)
     fun searchActiveItemsWithVehicles(query: String): Flow<List<ItemWithCategoryAndVehicles>>
 
-    // Low stock items with vehicles
     @Transaction
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -152,7 +148,6 @@ interface ItemDao {
     """)
     fun getLowStockItemsWithVehicles(threshold: Int = 5): Flow<List<ItemWithCategoryAndVehicles>>
 
-    // Get deleted items with their vehicles
     @Transaction
     @Query("""
         SELECT items.*, categories.name as categoryName 
@@ -163,7 +158,6 @@ interface ItemDao {
     """)
     fun getDeletedItemsWithVehicles(): Flow<List<ItemWithCategoryAndVehicles>>
 
-    // Vehicle relationship management
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItemVehicleRelation(relation: ItemVehicleRelation)
 
@@ -193,7 +187,6 @@ interface ItemDao {
     """)
     suspend fun getVehicleCountForItem(itemId: String): Int
 
-    // Check if a vehicle is assigned to an item
     @Query("""
         SELECT EXISTS(
             SELECT 1 FROM item_vehicle_relations 
@@ -202,7 +195,6 @@ interface ItemDao {
     """)
     suspend fun isVehicleAssignedToItem(itemId: String, vehicleId: String): Boolean
 
-    // Get all items assigned to a specific vehicle
     @Query("""
         SELECT items.*, categories.name as categoryName 
         FROM items 
@@ -212,7 +204,6 @@ interface ItemDao {
     """)
     fun getItemsByVehicleWithCategory(vehicleId: String): Flow<List<ItemWithCategory>>
 
-    // Batch operations
     @Transaction
     suspend fun updateItemVehicles(itemId: String, vehicleIds: List<String>) {
         deleteAllVehicleRelationsForItem(itemId)

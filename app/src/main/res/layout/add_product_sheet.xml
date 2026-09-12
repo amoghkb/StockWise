@@ -599,6 +599,7 @@
             android:visibility="visible">
 
             <!-- Header -->
+            <!-- Header -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -624,6 +625,18 @@
                     android:textSize="18sp"
                     android:fontFamily="@font/inter_bold"
                     android:layout_marginStart="12dp" />
+
+                <!-- Delete icon: only visible in edit mode -->
+                <ImageView
+                    android:id="@+id/ivDeleteItem"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_delete"
+                    android:contentDescription="Delete item"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Image Selection -->

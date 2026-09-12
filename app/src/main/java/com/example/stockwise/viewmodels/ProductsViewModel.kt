@@ -39,6 +39,11 @@ class ProductsViewModel @Inject constructor(
     private val salesRepository: SalesRepository
 ) : ViewModel() {
 
+    companion object {
+        /** Fallback category name for items whose parent category is deleted. */
+        const val DEFAULT_CATEGORY_NAME = "Default"
+    }
+
     // ===== RAW STATE =====
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
@@ -65,10 +70,13 @@ class ProductsViewModel @Inject constructor(
     private val _itemSaveSuccess = MutableStateFlow(false)
     val itemSaveSuccess: StateFlow<Boolean> = _itemSaveSuccess.asStateFlow()
 
+    private val _categoryDeleteSuccess = MutableStateFlow(false)
+    val categoryDeleteSuccess: StateFlow<Boolean> = _categoryDeleteSuccess.asStateFlow()
+
     private val _categoryNames = MutableStateFlow<List<String>>(emptyList())
     val categoryNames: StateFlow<List<String>> = _categoryNames.asStateFlow()
 
-    // ===== SEARCH / UI STATE (drives the RecyclerView list) =====
+    // ===== SEARCH / UI STATE =====
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -87,13 +95,6 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * The single source of truth for what the RecyclerView shows.
-     * - The query is debounced 250ms so fast typing doesn't recompute per keystroke.
-     * - The actual grouping/filtering runs on Dispatchers.Default, off the main thread.
-     * - Categories are grouped once with groupBy instead of re-filtering the full
-     *   item list once per category (was O(categories * items) before).
-     */
     @OptIn(FlowPreview::class)
     val displayItems: StateFlow<List<ProductListItem>> = combine(
         _categories,
@@ -369,12 +370,120 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
+    // ==============================
+    // CATEGORY DELETE (soft delete)
+    // ==============================
+
+    /**
+     * Soft-deletes the category. All of its active items get their categoryId
+     * reassigned to the "Default" category (which is created if missing).
+     */
+    fun deleteCategoryAndMoveItems(categoryId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val defaultCategoryId = ensureDefaultCategoryExists()
+
+                val itemsInCategory = _items.value.filter { it.item.categoryId == categoryId }
+                itemsInCategory.forEach { itemWithCategory ->
+                    val moved = itemWithCategory.item.copy(
+                        categoryId = defaultCategoryId,
+                        updatedAt = Date()
+                    )
+                    itemRepository.updateItem(moved)
+                }
+
+                categoryRepository.softDeleteCategory(categoryId)
+                _expandedCategories.value = _expandedCategories.value - categoryId
+
+                _categoryDeleteSuccess.value = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _error.value = "Failed to delete category: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Soft-deletes the category AND every item inside it.
+     */
+    fun deleteCategoryAndItems(categoryId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val itemsInCategory = _items.value.filter { it.item.categoryId == categoryId }
+                itemsInCategory.forEach { itemWithCategory ->
+                    itemRepository.softDeleteItem(itemWithCategory.item.id)
+                }
+
+                categoryRepository.softDeleteCategory(categoryId)
+                _expandedCategories.value = _expandedCategories.value - categoryId
+
+                _categoryDeleteSuccess.value = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _error.value = "Failed to delete category: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Returns the id of the "Default" category, creating it if it doesn't exist.
+     */
+    private suspend fun ensureDefaultCategoryExists(): String {
+        // Fast path: currently loaded list.
+        _categories.value.find { it.name.equals(DEFAULT_CATEGORY_NAME, ignoreCase = true) }
+            ?.let { return it.id }
+
+        // Repository lookup.
+        categoryRepository.getCategoryByName(DEFAULT_CATEGORY_NAME)?.let { return it.id }
+
+        // Create it.
+        val newId = UUID.randomUUID().toString()
+        val defaultCategory = Category(
+            id = newId,
+            name = DEFAULT_CATEGORY_NAME,
+            description = "Auto-created fallback category",
+            createdAt = Date(),
+            updatedAt = Date()
+        )
+        categoryRepository.insertCategory(defaultCategory)
+        return newId
+    }
+
+    fun clearCategoryDeleteSuccess() {
+        _categoryDeleteSuccess.value = false
+    }
+
+    // ==============================
+    // CLEAR HELPERS
+    // ==============================
+
+
+    suspend fun softDeleteItem(itemId: String) {
+        try {
+            itemRepository.softDeleteItem(itemId)
+        } catch (e: Exception) {
+            _error.value = "Failed to delete item: ${e.message}"
+            throw e
+        }
+    }
     fun clearVehicleSaveSuccess() { _vehicleSaveSuccess.value = false }
     fun clearError() { _error.value = null }
     fun clearSaveSuccess() {
         _categorySaveSuccess.value = false
         _itemSaveSuccess.value = false
     }
+
+    // ==============================
+    // SALES
+    // ==============================
 
     suspend fun recordSale(
         itemId: String,

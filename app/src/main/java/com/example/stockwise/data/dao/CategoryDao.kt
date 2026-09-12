@@ -29,6 +29,10 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE id = :categoryId AND isDeleted = 0")
     suspend fun getActiveCategoryById(categoryId: String): Category?
 
+    /** NEW: used to look up the fallback "Default" category by name. */
+    @Query("SELECT * FROM categories WHERE LOWER(name) = LOWER(:name) AND isDeleted = 0 LIMIT 1")
+    suspend fun getActiveCategoryByName(name: String): Category?
+
     @Query("SELECT COUNT(*) FROM items WHERE categoryId = :categoryId AND isDeleted = 0")
     suspend fun getActiveItemCountForCategory(categoryId: String): Int
 

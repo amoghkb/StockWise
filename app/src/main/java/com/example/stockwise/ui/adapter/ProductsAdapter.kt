@@ -81,6 +81,18 @@ class ProductsAdapter(
         }
     }
 
+    // ---------- Helpers for ItemTouchHelper ----------
+
+    fun isHeaderAt(position: Int): Boolean =
+        position in 0 until itemCount && getItem(position) is ProductListItem.CategoryHeader
+
+    fun headerCategoryIdAt(position: Int): String? =
+        if (position in 0 until itemCount)
+            (getItem(position) as? ProductListItem.CategoryHeader)?.categoryId
+        else null
+
+    // ---------- ViewHolders ----------
+
     class HeaderViewHolder(
         itemView: View,
         private val onHeaderClick: (String) -> Unit
@@ -115,7 +127,6 @@ class ProductsAdapter(
         private val cornerRadiusPx = (8 * context.resources.displayMetrics.density).toInt()
 
         init {
-            // Static styling that doesn't depend on data — do it once here, not per bind.
             tvName.setTextAppearance(R.style.BodyText)
             tvSku.setTextAppearance(R.style.BodyText)
             tvPrice.setTextAppearance(R.style.BodyText)
@@ -143,8 +154,6 @@ class ProductsAdapter(
 
             val imagePath = item.imageUri
             if (!imagePath.isNullOrEmpty()) {
-                // No File.exists() check here — Glide already does file I/O off the
-                // main thread and falls back to .error() if the file is missing.
                 Glide.with(context)
                     .load(File(imagePath))
                     .diskCacheStrategy(DiskCacheStrategy.ALL)

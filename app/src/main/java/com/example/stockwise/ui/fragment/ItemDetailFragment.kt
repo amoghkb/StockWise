@@ -33,7 +33,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -519,7 +518,7 @@ class ItemDetailFragment : Fragment() {
                 // Use Glide with smooth rounded corners (8dp)
                 Glide.with(requireContext())
                     .load(uri)
-                    .transform(RoundedCorners(8))  // Changed from 24 to 8
+                    .transform(RoundedCorners(8))
                     .centerCrop()
                     .placeholder(R.drawable.ic_image)
                     .error(R.drawable.ic_image)
@@ -535,6 +534,7 @@ class ItemDetailFragment : Fragment() {
             }
         }
     }
+
     // ==============================
     // EDIT ITEM SHEET
     // ==============================
@@ -552,7 +552,7 @@ class ItemDetailFragment : Fragment() {
             sheetBinding.ivDeleteImage.visibility = View.GONE
             sheetBinding.ivDeleteImage.setOnClickListener(null)
 
-            showItemFormWithData(sheetBinding)
+            showItemFormWithData(sheetBinding, sheet)
             setupSheetClickListeners(sheetBinding, sheet)
             setupVehicleMultiSelectDropdown(sheetBinding)
         }
@@ -560,7 +560,10 @@ class ItemDetailFragment : Fragment() {
         sheet.show(parentFragmentManager, "EditItemSheet")
     }
 
-    private fun showItemFormWithData(binding: AddProductSheetBinding) {
+    private fun showItemFormWithData(
+        binding: AddProductSheetBinding,
+        sheet: ReusableBottomSheet
+    ) {
         binding.menuContainer.visibility = View.GONE
         binding.categoryFormContainer.visibility = View.GONE
         binding.itemFormContainer.visibility = View.VISIBLE
@@ -579,8 +582,6 @@ class ItemDetailFragment : Fragment() {
                 if (imageFile.exists()) {
                     binding.ivItemImage.setImageURI(Uri.fromFile(imageFile))
                     binding.tvTapToSelect.text = "Change Image"
-                    // Don't show delete button for existing image
-                    // User can replace it by selecting a new one
                     binding.ivDeleteImage.visibility = View.GONE
                     binding.ivDeleteImage.setOnClickListener(null)
                 } else {
@@ -595,7 +596,6 @@ class ItemDetailFragment : Fragment() {
                 binding.ivDeleteImage.visibility = View.GONE
             }
         } else {
-            // No existing image
             binding.ivItemImage.setImageResource(R.drawable.ic_image)
             binding.tvTapToSelect.text = "Tap to select image"
             binding.ivDeleteImage.visibility = View.GONE
@@ -610,6 +610,12 @@ class ItemDetailFragment : Fragment() {
 
         binding.btnSaveItem.text = "Update Item"
         binding.tvNewItem.text = "Edit Item"
+
+        // ---------- Delete icon (only visible in edit mode) ----------
+        binding.ivDeleteItem.visibility = View.VISIBLE
+        binding.ivDeleteItem.setOnClickListener {
+            confirmDeleteItem(sheet)
+        }
 
         clearAllFieldsFocus(binding)
         hideKeyboard(binding)
@@ -653,20 +659,111 @@ class ItemDetailFragment : Fragment() {
     }
 
     // ==============================
+    // DELETE ITEM (from edit sheet)
+    // ==============================
+
+    private fun confirmDeleteItem(sheet: ReusableBottomSheet) {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_delete_category, null)
+
+        // Optional: only present if you added the id in dialog_delete_category.xml
+        val tvDialogTitle = dialogView.findViewById<TextView>(R.id.tvDialogTitle)
+        val tvMessage = dialogView.findViewById<TextView>(R.id.tvDialogMessage)
+        val optionsContainer = dialogView.findViewById<LinearLayout>(R.id.optionsContainer)
+        val btnCancel = dialogView.findViewById<TextView>(R.id.btnCancel)
+        val btnDelete = dialogView.findViewById<TextView>(R.id.btnDeleteCategory)
+
+        tvDialogTitle?.text = "Delete Item"
+        tvMessage.text =
+            "Are you sure you want to delete \"$itemName\"?\n\nThis cannot be undone!"
+
+        // Hide the two radio cards — not relevant for item deletion.
+        optionsContainer.visibility = View.GONE
+
+        // Rename the red action button
+        btnDelete.text = "Delete Item"
+
+        val dialog = Dialog(requireContext())
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(dialogView)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            val width = (resources.displayMetrics.widthPixels * 0.92).toInt()
+            setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnDelete.setOnClickListener {
+            dialog.dismiss()
+            performSoftDeleteItem(sheet)
+        }
+
+        dialog.show()
+    }
+
+    private fun performSoftDeleteItem(sheet: ReusableBottomSheet) {
+        lifecycleScope.launch {
+            try {
+                viewModel.softDeleteItem(itemId)
+                sharedViewModel.refreshDashboardData()
+
+                sheet.dismiss()
+                "Item deleted".toastSuccess(requireContext())
+
+                // Pop back to ProductsFragment
+                parentFragmentManager.popBackStack()
+            } catch (e: Exception) {
+                "Failed to delete item: ${e.message}".toastError(requireContext())
+            }
+        }
+    }
+
+    // ==============================
     // IMAGE PICKER FUNCTIONS
     // ==============================
 
     private fun openImagePicker() {
-        val options = arrayOf("Camera", "Gallery")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Select Image")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> openCamera()
-                    1 -> openGallery()
-                }
-            }
-            .show()
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_choice, null)
+
+        val tvDialogTitle = dialogView.findViewById<TextView>(R.id.tvDialogTitle)
+        val tvMessage = dialogView.findViewById<TextView>(R.id.tvDialogMessage)
+        val optionCamera = dialogView.findViewById<LinearLayout>(R.id.optionCamera)
+        val optionGallery = dialogView.findViewById<LinearLayout>(R.id.optionGallery)
+        val btnCancel = dialogView.findViewById<TextView>(R.id.btnCancel)
+
+        tvDialogTitle.text = "Select Image"
+        tvMessage.text = "Choose a source for your photo."
+
+        val dialog = Dialog(requireContext())
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(dialogView)
+        dialog.setCancelable(true)
+        dialog.setCanceledOnTouchOutside(true)
+
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            val width = (resources.displayMetrics.widthPixels * 0.92).toInt()
+            setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        optionCamera.setOnClickListener {
+            dialog.dismiss()
+            openCamera()
+        }
+
+        optionGallery.setOnClickListener {
+            dialog.dismiss()
+            openGallery()
+        }
+
+        dialog.show()
     }
 
     private fun openCamera() {
@@ -945,7 +1042,6 @@ class ItemDetailFragment : Fragment() {
         val typeChipsContainer = popupView.findViewById<LinearLayout>(R.id.vehicleTypeChipsContainer)
         val ivClearSearch = popupView.findViewById<ImageView>(R.id.ivClearVehicleSearch)
 
-        // Wire up the clear ("X") button for vehicle search
         setupVehiclePopupClearButton(searchEditText, ivClearSearch)
 
         filteredVehicles.clear()
@@ -1154,10 +1250,7 @@ class ItemDetailFragment : Fragment() {
 
             val currentQuery = searchEditText.text.toString()
 
-            // If "All" chip is selected, show without sorting (original order)
-            // If a specific type is selected, sort with selected vehicles on top
             if (isAllChip) {
-                // Show all vehicles in original order when "All" is selected
                 val filtered = allVehicles.filter { vehicle ->
                     currentQuery.isEmpty() ||
                             vehicle.name.contains(currentQuery, ignoreCase = true) ||
@@ -1207,7 +1300,6 @@ class ItemDetailFragment : Fragment() {
     }
 
     private fun filterVehicles(query: String, tvEmptyState: TextView?) {
-        // First, filter vehicles based on search query
         val filtered = allVehicles.filter { vehicle ->
             query.isEmpty() ||
                     vehicle.name.contains(query, ignoreCase = true) ||
@@ -1215,15 +1307,12 @@ class ItemDetailFragment : Fragment() {
                     (vehicle.model?.contains(query, ignoreCase = true) == true)
         }
 
-        // Then, sort the filtered list: selected vehicles first, then unselected
         val sortedFiltered = filtered.sortedWith(compareByDescending<Vehicle> {
             selectedVehicles.contains(it)
         }.thenBy { it.name })
 
-        // Update the adapter with sorted list
         vehicleAdapter?.updateList(sortedFiltered)
 
-        // Show/hide empty state
         tvEmptyState?.visibility = if (sortedFiltered.isEmpty()) View.VISIBLE else View.GONE
     }
 
@@ -1242,7 +1331,6 @@ class ItemDetailFragment : Fragment() {
         }
     }
 
-    // Shows ALL selected vehicles as chips (scrollable row) — no "+N more" truncation
     private fun updateVehicleChips(binding: AddProductSheetBinding) {
         if (selectedVehicles.isEmpty()) {
             binding.selectedVehiclesContainer.visibility = View.GONE
@@ -1356,7 +1444,6 @@ class ItemDetailFragment : Fragment() {
             return
         }
 
-        // Handle image: if new image selected, save it; otherwise keep existing
         var savedImagePath = existingItem.imageUri
         selectedImageUri?.let { uri ->
             savedImagePath = saveImageToInternalStorage(uri)
