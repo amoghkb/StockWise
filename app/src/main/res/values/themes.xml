@@ -2,13 +2,13 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.StockWise" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here -->
-        <item name="colorPrimary">#0090FE</item>
+        <item name="colorPrimary">#005DA7</item>
         <item name="colorPrimaryContainer">#E3F2FD</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#0090FE</item>
+        <item name="colorSecondary">#005DA7</item>
         <item name="colorSecondaryContainer">#E3F2FD</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorTertiary">#0090FE</item>
+        <item name="colorTertiary">#005DA7</item>
         <item name="colorSurface">#FFFFFF</item>
         <item name="colorOnSurface">#000000</item>
         <item name="colorSurfaceVariant">#F5F5F5</item>
@@ -16,7 +16,7 @@
         <!-- Status bar color -->
         <item name="android:statusBarColor">?attr/colorPrimary</item>
         <!-- Bottom navigation colors -->
-        <item name="colorPrimaryInverse">#0090FE</item>
+        <item name="colorPrimaryInverse">#005DA7</item>
     </style>
 
     <style name="NavTextActive" parent="TextAppearance.MaterialComponents.Caption">

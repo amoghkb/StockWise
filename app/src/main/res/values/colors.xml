@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <color name="stock_wise_primary">#0090FE</color>
+    <color name="stock_wise_primary">#005DA7</color>
     <color name="stock_wise_secondary">#005DA7</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFF</color>
