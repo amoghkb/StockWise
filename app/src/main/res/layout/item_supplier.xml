@@ -4,21 +4,18 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="16dp"
-    android:background="@android:color/white"
     app:cardBackgroundColor="@android:color/white"
     app:cardCornerRadius="16dp"
-    app:cardElevation="2dp"
-    app:strokeColor="#F3F4F6"
+    app:cardElevation="0dp"
+    app:strokeColor="#E5E7EB"
     app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/white"
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Top Row: Avatar, Name, Menu -->
         <!-- Top Row: Avatar, Name, 3-dot menu -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -38,7 +35,7 @@
                 android:textColor="#0056B3"
                 android:textSize="16sp" />
 
-            <!-- Company name — centered vertically next to avatar -->
+            <!-- Company name + verified badge -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -65,7 +62,7 @@
                     app:tint="#0056B3" />
             </LinearLayout>
 
-            <!-- 3-dot overflow menu on the right -->
+            <!-- 3-dot overflow menu -->
             <ImageView
                 android:id="@+id/btnOverflow"
                 android:layout_width="32dp"
@@ -77,15 +74,16 @@
                 android:padding="6dp"
                 android:src="@drawable/ic_three_dots"
                 app:tint="#6B7280" />
-
         </LinearLayout>
+
+        <!-- Divider -->
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_marginVertical="12dp"
             android:background="#F3F4F6" />
 
-        <!-- Contact Info -->
+        <!-- Contact Info Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -118,6 +116,7 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
+        <!-- Address Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -203,10 +202,6 @@
                 app:iconSize="14dp"
                 app:iconTint="#25D366"
                 app:strokeColor="#E5E7EB" />
-
-
-
-            <!-- PROFILE -->
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

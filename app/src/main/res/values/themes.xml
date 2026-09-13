@@ -22,10 +22,19 @@
     <style name="NavTextActive" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/inter_bold</item>
+        <item name="fontFamily">@font/inter_bold</item>
     </style>
 
     <style name="NavTextInactive" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/inter_medium</item>
+        <item name="fontFamily">@font/inter_medium</item>
+    </style>
+
+    <style name="AppBottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView.Colored">
+        <item name="itemTextAppearanceActive">@style/NavTextActive</item>
+        <item name="itemTextAppearanceInactive">@style/NavTextInactive</item>
     </style>
 
     <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">

@@ -380,18 +380,14 @@ class SharedDataViewModel @Inject constructor(
 
     fun getActiveDateKeysForMonth(monthPrefix: String): Flow<List<String>> =
         procurementRepository.getActiveDateKeysForMonth(monthPrefix)
+
     // ============================================================
     // SUPPLIER SUPPORT
     // ============================================================
 
-    /**
-     * Live stream of active suppliers. When [query] is blank,
-     * returns all active suppliers. Otherwise filters by name/contact/category/phone.
-     */
     fun getSuppliersFlow(query: String = ""): Flow<List<Supplier>> =
         supplierRepository.searchActiveSuppliers(query)
 
-    /** Insert a new supplier. Returns the newly created supplier's ID. */
     suspend fun addSupplier(
         companyName: String,
         category: String = "General",
@@ -406,12 +402,17 @@ class SharedDataViewModel @Inject constructor(
         address = address
     )
 
-    /** Soft delete a supplier. */
+    /** Soft delete a supplier by id. */
     suspend fun deleteSupplier(supplierId: String) {
         supplierRepository.softDeleteSupplier(supplierId)
     }
 
-    /** Count of active suppliers (used for the "Total Registered Vendors" stat). */
-    suspend fun getSupplierCount(): Int = supplierRepository.getActiveSupplierCount()
+    /** Convenience overload — accepts the Supplier object directly. */
+    suspend fun deleteSupplier(supplier: Supplier) {
+        supplierRepository.softDeleteSupplier(supplier.id)
+    }
 
+
+
+    suspend fun getSupplierCount(): Int = supplierRepository.getActiveSupplierCount()
 }

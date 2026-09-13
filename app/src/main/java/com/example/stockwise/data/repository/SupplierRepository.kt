@@ -20,7 +20,6 @@ class SupplierRepository @Inject constructor(
         phoneNumber: String? = null,
         address: String? = null
     ): String {
-        // Build initials from company name (max 2 letters)
         val initials = companyName
             .trim()
             .split(" ")
@@ -53,6 +52,7 @@ class SupplierRepository @Inject constructor(
     suspend fun softDeleteSupplier(supplierId: String) {
         supplierDao.softDeleteSupplier(supplierId, System.currentTimeMillis())
     }
+
 
     fun getAllActiveSuppliers(): Flow<List<Supplier>> = supplierDao.getAllActiveSuppliers()
 

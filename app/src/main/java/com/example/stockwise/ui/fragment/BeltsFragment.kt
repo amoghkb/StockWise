@@ -1,5 +1,6 @@
 package com.example.stockwise.ui.fragment
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -7,11 +8,15 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
+import androidx.appcompat.widget.AppCompatButton
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -40,6 +45,7 @@ class BeltsFragment : Fragment() {
     private lateinit var tvTotalVendors: TextView
     private lateinit var tvActivePartners: TextView
     private lateinit var etSearch: EditText
+    private lateinit var ivClearSearch: ImageView
 
     private var currentSheetBinding: AddSupplierSheetBinding? = null
     private var currentSheet: ReusableBottomSheet? = null
@@ -62,27 +68,23 @@ class BeltsFragment : Fragment() {
         tvTotalVendors = view.findViewById(R.id.tvTotalVendors)
         tvActivePartners = view.findViewById(R.id.tvActivePartners)
         etSearch = view.findViewById(R.id.etSearch)
+        ivClearSearch = view.findViewById(R.id.ivClearSearch)
 
         // 2. Setup RecyclerView with action callbacks
         rvSuppliers.layoutManager = LinearLayoutManager(requireContext())
         adapter = SupplierAdapter(
             suppliers = emptyList(),
             onCallClick = { supplier -> makeCall(supplier.phoneNumber) },
-            onWhatsAppClick = { supplier -> openWhatsApp(supplier.phoneNumber) }
+            onWhatsAppClick = { supplier -> openWhatsApp(supplier.phoneNumber) },
+            onDeleteClick = { supplier -> confirmDeleteSupplier(supplier) }
         )
         rvSuppliers.adapter = adapter
 
         // 3. Observe DB → UI
         observeSuppliers("")
 
-        // 4. Search Listener
-        etSearch.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                observeSuppliers(s?.toString().orEmpty())
-            }
-            override fun afterTextChanged(s: Editable?) {}
-        })
+        // 4. Search setup (with clear button)
+        setupSearch()
 
         // 5. Add Supplier Button
         view.findViewById<View>(R.id.btnAddSupplier).setOnClickListener {
@@ -99,14 +101,100 @@ class BeltsFragment : Fragment() {
     }
 
     // ==========================================
+    // SEARCH — with clear (×) button
+    // ==========================================
+
+    private fun setupSearch() {
+        // Start hidden
+        ivClearSearch.alpha = 0f
+        ivClearSearch.visibility = View.GONE
+
+        etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (s.isNullOrEmpty()) {
+                    hideClearButtonWithFade(ivClearSearch)
+                } else {
+                    showClearButtonWithFade(ivClearSearch)
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {
+                observeSuppliers(s?.toString().orEmpty())
+            }
+        })
+
+        ivClearSearch.setOnClickListener {
+            animateClearTap(ivClearSearch)
+            etSearch.text?.clear()
+            observeSuppliers("")
+            hideClearButtonWithFade(ivClearSearch)
+            hideKeyboard()
+        }
+
+        ivClearSearch.setOnTouchListener { _, event -> handleClearTouch(ivClearSearch, event) }
+    }
+
+    // ==========================================
+    // SHARED CLEAR-BUTTON HELPERS
+    // ==========================================
+
+    private fun showClearButtonWithFade(view: View) {
+        if (view.visibility == View.VISIBLE && view.alpha == 1f) return
+        view.visibility = View.VISIBLE
+        view.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
+    }
+
+    private fun hideClearButtonWithFade(view: View) {
+        if (view.visibility != View.VISIBLE) return
+        view.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction { view.visibility = View.GONE }
+            .start()
+    }
+
+    private fun animateClearTap(view: View) {
+        view.animate()
+            .scaleX(0.7f)
+            .scaleY(0.7f)
+            .setDuration(100)
+            .withEndAction {
+                view.animate()
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(100)
+                    .start()
+            }
+            .start()
+    }
+
+    private fun handleClearTouch(view: View, event: MotionEvent): Boolean {
+        when (event.action) {
+            MotionEvent.ACTION_DOWN ->
+                view.animate().scaleX(0.85f).scaleY(0.85f).setDuration(50).start()
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                view.animate().scaleX(1f).scaleY(1f).setDuration(50).start()
+        }
+        return false
+    }
+
+    private fun hideKeyboard() {
+        val imm = requireContext()
+            .getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
+    }
+
+    // ==========================================
     // ACTION HANDLERS — CALL & WHATSAPP
     // ==========================================
 
-    /**
-     * Opens the phone dialer with the number pre-filled.
-     * Using ACTION_DIAL avoids needing CALL_PHONE permission —
-     * the user just taps the green call button.
-     */
     private fun makeCall(rawNumber: String) {
         val cleanNumber = sanitizePhoneNumber(rawNumber)
         if (cleanNumber.isBlank()) {
@@ -126,11 +214,6 @@ class BeltsFragment : Fragment() {
         }
     }
 
-    /**
-     * Opens WhatsApp chat with this number.
-     * Tries the official WhatsApp intent first; if WhatsApp isn't installed,
-     * falls back to opening wa.me in a browser.
-     */
     private fun openWhatsApp(rawNumber: String) {
         val cleanNumber = sanitizePhoneNumber(rawNumber)
         if (cleanNumber.isBlank()) {
@@ -138,19 +221,16 @@ class BeltsFragment : Fragment() {
             return
         }
 
-        // wa.me expects an international number WITHOUT "+" and WITHOUT spaces
         val waNumber = cleanNumber.removePrefix("+")
         val waUrl = "https://wa.me/$waNumber"
 
         try {
-            // Try WhatsApp's official package intent first
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse(waUrl)
                 setPackage("com.whatsapp")
             }
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            // WhatsApp not installed → try WhatsApp Business, then browser
             try {
                 val businessIntent = Intent(Intent.ACTION_VIEW).apply {
                     data = Uri.parse(waUrl)
@@ -170,16 +250,58 @@ class BeltsFragment : Fragment() {
         }
     }
 
-    /**
-     * Cleans a phone number for tel: / wa.me usage.
-     * Keeps digits and a single leading '+'. Removes dashes, spaces, brackets.
-     */
     private fun sanitizePhoneNumber(input: String): String {
         if (input.isBlank() || input == "—") return ""
         val trimmed = input.trim()
         val hasPlus = trimmed.startsWith("+")
         val digitsOnly = trimmed.filter { it.isDigit() }
         return if (hasPlus) "+$digitsOnly" else digitsOnly
+    }
+
+    // ==========================================
+    // DELETE SUPPLIER (custom dialog + soft delete)
+    // ==========================================
+
+    private fun confirmDeleteSupplier(supplier: Supplier) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_confirm_delete, null)
+        val dialog = android.app.Dialog(requireContext()).apply {
+            setContentView(dialogView)
+            window?.setBackgroundDrawableResource(android.R.color.transparent)
+            window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.88f).toInt(),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setCancelable(true)
+        }
+
+        dialogView.findViewById<TextView>(R.id.tvDialogTitle).text = "Delete Supplier"
+
+        dialogView.findViewById<TextView>(R.id.tvDialogMessage).text =
+            "Are you sure you want to delete \"${supplier.companyName}\"? This action cannot be undone."
+
+        dialogView.findViewById<AppCompatButton>(R.id.btnCancel)
+            .setOnClickListener { dialog.dismiss() }
+
+        dialogView.findViewById<AppCompatButton>(R.id.btnDelete)
+            .setOnClickListener {
+                dialog.dismiss()
+                softDeleteSupplier(supplier)
+            }
+
+        dialog.show()
+    }
+
+    private fun softDeleteSupplier(supplier: Supplier) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // Soft delete → sets isDeleted = 1, deletedAt = now
+                sharedViewModel.deleteSupplier(supplier)
+                "Supplier deleted".toastSuccess(requireContext())
+                // No manual refresh — the Flow will re-emit and the list updates
+            } catch (e: Exception) {
+                "Failed to delete: ${e.message}".toastError(requireContext())
+            }
+        }
     }
 
     // ==========================================
