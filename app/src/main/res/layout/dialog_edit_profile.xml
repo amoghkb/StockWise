@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dialog_rounded"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/inter_bold"
+        android:text="Edit Profile"
+        android:textColor="#111827"
+        android:textSize="18sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:fontFamily="@font/inter_medium"
+        android:text="Update your name and email"
+        android:textColor="#6B7280"
+        android:textSize="13sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:fontFamily="@font/inter_bold"
+        android:text="Name"
+        android:textColor="#111827"
+        android:textSize="13sp" />
+
+    <EditText
+        android:id="@+id/etName"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_auth_field"
+        android:fontFamily="@font/inter_medium"
+        android:hint="Your name"
+        android:importantForAutofill="no"
+        android:inputType="textPersonName|textCapWords"
+        android:paddingHorizontal="14dp"
+        android:textColor="#111827"
+        android:textColorHint="#9CA3AF"
+        android:textSize="14sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:fontFamily="@font/inter_bold"
+        android:text="Email"
+        android:textColor="#111827"
+        android:textSize="13sp" />
+
+    <EditText
+        android:id="@+id/etEmail"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_auth_field"
+        android:fontFamily="@font/inter_medium"
+        android:hint="you@example.com"
+        android:importantForAutofill="no"
+        android:inputType="textEmailAddress"
+        android:paddingHorizontal="14dp"
+        android:textColor="#111827"
+        android:textColorHint="#9CA3AF"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnCancel"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_dialog_cancel_button"
+            android:fontFamily="@font/inter_medium"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="12dp"
+            android:text="Cancel"
+            android:textAllCaps="false"
+            android:textColor="#000000"
+            android:textSize="14sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnSave"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_dialog_save_button"
+            android:fontFamily="@font/inter_medium"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="12dp"
+            android:text="Save"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+</LinearLayout>

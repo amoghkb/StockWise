@@ -13,34 +13,12 @@
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:background="@android:color/white"
+        android:paddingHorizontal="16dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Invisible spacer on the left, balances the profile icon's space on the right
-             so the text below centers against the true available width -->
-        <View
-            android:id="@+id/left_spacer"
-            android:layout_width="44dp"
-            android:layout_height="1dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <!-- Profile Icon (right end) -->
-        <ImageView
-            android:id="@+id/iv_profile"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_marginEnd="16dp"
-            android:src="@drawable/ic_profile"
-            android:contentDescription="Profile"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
-
+        <!-- Logo — left aligned -->
         <TextView
             android:id="@+id/tv_logo"
             android:layout_width="wrap_content"
@@ -51,8 +29,21 @@
             android:textColor="@color/stock_wise_primary"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toEndOf="@id/left_spacer"
-            app:layout_constraintEnd_toStartOf="@id/iv_profile" />
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Profile Icon — right aligned -->
+        <ImageView
+            android:id="@+id/iv_profile"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_profile"
+            android:contentDescription="Profile"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

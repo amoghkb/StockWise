@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bottom_sheet_rounded_top"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="16dp"
+    android:paddingBottom="24dp">
+
+    <!-- Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center"
+        android:background="@drawable/drag_handle"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add to Sale"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#1B2340"
+        android:fontFamily="@font/inter_bold"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Item Name Display -->
+    <TextView
+        android:id="@+id/tv_sale_item_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Item Name"
+        android:textSize="16sp"
+        android:textColor="#333333"
+        android:fontFamily="@font/inter_medium"
+        android:gravity="center"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Item Price Display -->
+    <TextView
+        android:id="@+id/tv_sale_item_price"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="₹0.00"
+        android:textSize="14sp"
+        android:textColor="#666666"
+        android:fontFamily="@font/inter_regular"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Quantity Selector -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="20dp">
+
+        <!-- Minus Button -->
+        <ImageButton
+            android:id="@+id/btn_decrease_quantity"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:src="@drawable/ic_minus"
+            android:background="@drawable/quantity_button_background"
+            android:padding="14dp"
+            android:contentDescription="Decrease Quantity" />
+
+        <!-- Quantity Display -->
+        <TextView
+            android:id="@+id/tv_quantity"
+            android:layout_width="80dp"
+            android:layout_height="56dp"
+            android:text="1"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#1B2340"
+            android:fontFamily="@font/inter_bold"
+            android:gravity="center"
+            android:background="@drawable/quantity_display_background"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp" />
+
+        <!-- Plus Button -->
+        <ImageButton
+            android:id="@+id/btn_increase_quantity"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:src="@drawable/ic_plus"
+            android:background="@drawable/quantity_button_background"
+            android:padding="14dp"
+            android:contentDescription="Increase Quantity" />
+
+    </LinearLayout>
+
+    <!-- Available Stock -->
+    <TextView
+        android:id="@+id/tv_available_stock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Available: 124 units"
+        android:textSize="12sp"
+        android:textColor="#8A8FA3"
+        android:fontFamily="@font/inter_regular"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E5E7EB"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Selling Price Editor -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Selling Price:"
+            android:textSize="14sp"
+            android:textColor="#333333"
+            android:fontFamily="@font/inter_medium"
+            android:layout_marginEnd="12dp" />
+
+        <EditText
+            android:id="@+id/et_sale_price"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:inputType="numberDecimal"
+            android:text="0.00"
+            android:textSize="16sp"
+            android:textColor="#1B2340"
+            android:fontFamily="@font/inter_medium"
+            android:background="@drawable/edit_text_rounded_border"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Total Amount -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Total:"
+            android:textSize="16sp"
+            android:textColor="#333333"
+            android:fontFamily="@font/inter_bold"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/tv_total_amount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="₹0.00"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#1B2340"
+            android:fontFamily="@font/inter_bold"
+            android:gravity="end" />
+
+    </LinearLayout>
+
+    <!-- Confirm Button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btn_confirm_sale"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="@drawable/rounded_save_bg"
+        android:text="Confirm Sale"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="@font/inter_bold"
+        android:enabled="false" />
+
+</LinearLayout>

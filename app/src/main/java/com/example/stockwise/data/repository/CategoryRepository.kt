@@ -1,17 +1,38 @@
 package com.example.stockwise.data.repository
 
-import com.example.stockwise.AppDatabase
+import com.example.stockwise.data.dao.CategoryDao
+import com.example.stockwise.data.dao.ItemDao
 import com.example.stockwise.data.entities.Category
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class CategoryRepository(private val database: AppDatabase) {
+@Singleton
+class CategoryRepository @Inject constructor(
+    private val categoryDao: CategoryDao,
+    private val itemDao: ItemDao
+) {
 
-    private val categoryDao = database.categoryDao()
-    private val itemDao = database.itemDao()
+    suspend fun insertCategory(category: Category): String {
+        categoryDao.insertCategory(category)
+        return category.id
+    }
 
-    suspend fun insertCategory(category: Category): Long {
-        return categoryDao.insertCategory(category)
+    suspend fun insertCategory(
+        name: String,
+        description: String? = null
+    ): String {
+        val category = Category(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            description = description,
+            createdAt = Date(),
+            updatedAt = Date()
+        )
+        categoryDao.insertCategory(category)
+        return category.id
     }
 
     suspend fun updateCategory(category: Category) {
@@ -19,45 +40,25 @@ class CategoryRepository(private val database: AppDatabase) {
         categoryDao.updateCategory(updatedCategory)
     }
 
-    // Soft delete category and all its items
-    suspend fun softDeleteCategory(categoryId: Long) {
-        categoryDao.softDeleteCategory(categoryId)
-        // Soft delete all items in this category
-        itemDao.getActiveItemsByCategory(categoryId).collect { items ->
-            items.forEach { itemWithCategory ->
-                itemDao.softDeleteItem(itemWithCategory.item.id)
-            }
-        }
-    }
-
-    // Hard delete category
-    suspend fun hardDeleteCategory(categoryId: Long) {
-        // First hard delete all items in this category
-        itemDao.hardDeleteItemsByCategory(categoryId)
-        // Then hard delete the category
-        categoryDao.hardDeleteCategory(categoryId)
-    }
-
-    suspend fun restoreCategory(categoryId: Long) {
-        categoryDao.restoreCategory(categoryId)
-        // Restore all items in this category
-        // Note: You might want to handle this differently
+    suspend fun softDeleteCategory(categoryId: String) {
+        categoryDao.softDeleteCategory(categoryId, System.currentTimeMillis())
     }
 
     fun getAllActiveCategories(): Flow<List<Category>> {
         return categoryDao.getAllActiveCategories()
     }
 
-    fun getAllCategories(): Flow<List<Category>> {
-        return categoryDao.getAllCategories()
-    }
-
     fun getDeletedCategories(): Flow<List<Category>> {
         return categoryDao.getDeletedCategories()
     }
 
-    suspend fun getActiveCategoryById(categoryId: Long): Category? {
+    suspend fun getActiveCategoryById(categoryId: String): Category? {
         return categoryDao.getActiveCategoryById(categoryId)
+    }
+
+    /** NEW: lookup used by the "move to Default" flow. */
+    suspend fun getCategoryByName(name: String): Category? {
+        return categoryDao.getActiveCategoryByName(name)
     }
 
     fun searchActiveCategories(query: String): Flow<List<Category>> {
@@ -68,7 +69,7 @@ class CategoryRepository(private val database: AppDatabase) {
         }
     }
 
-    suspend fun getActiveItemCountForCategory(categoryId: Long): Int {
+    suspend fun getActiveItemCountForCategory(categoryId: String): Int {
         return categoryDao.getActiveItemCountForCategory(categoryId)
     }
 

@@ -2,13 +2,13 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.StockWise" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here -->
-        <item name="colorPrimary">#0090FE</item>
+        <item name="colorPrimary">#005DA7</item>
         <item name="colorPrimaryContainer">#E3F2FD</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#0090FE</item>
+        <item name="colorSecondary">#005DA7</item>
         <item name="colorSecondaryContainer">#E3F2FD</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorTertiary">#0090FE</item>
+        <item name="colorTertiary">#005DA7</item>
         <item name="colorSurface">#FFFFFF</item>
         <item name="colorOnSurface">#000000</item>
         <item name="colorSurfaceVariant">#F5F5F5</item>
@@ -16,17 +16,44 @@
         <!-- Status bar color -->
         <item name="android:statusBarColor">?attr/colorPrimary</item>
         <!-- Bottom navigation colors -->
-        <item name="colorPrimaryInverse">#0090FE</item>
+        <item name="colorPrimaryInverse">#005DA7</item>
     </style>
 
     <style name="NavTextActive" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:textSize">12sp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/inter_bold</item>
+        <item name="fontFamily">@font/inter_bold</item>
     </style>
 
     <style name="NavTextInactive" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">@font/inter_medium</item>
+        <item name="fontFamily">@font/inter_medium</item>
+    </style>
+
+    <style name="AppBottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView.Colored">
+        <item name="itemTextAppearanceActive">@style/NavTextActive</item>
+        <item name="itemTextAppearanceInactive">@style/NavTextInactive</item>
+    </style>
+
+    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/BottomSheetStyle</item>
+    </style>
+
+    <style name="BottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="behavior_peekHeight">auto</item>
+        <item name="behavior_skipCollapsed">false</item>
     </style>
 
     <style name="Theme.StockWise" parent="Base.Theme.StockWise" />
+
+    <!-- ============ SPLASH THEME (required by AndroidManifest) ============ -->
+    <style name="Theme.StockWise.Splash" parent="Theme.StockWise">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
 </resources>

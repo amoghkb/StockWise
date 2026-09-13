@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@android:color/white">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp"
+        android:background="@android:color/white">
+
+        <TextView
+            android:id="@+id/tvCartTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="New Sale"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/inter_bold"
+            android:textColor="#1B2340" />
+
+        <TextView
+            android:id="@+id/tvCartItemCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 items"
+            android:textSize="13sp"
+            android:fontFamily="@font/inter_medium"
+            android:textColor="#6B7280" />
+    </LinearLayout>
+
+    <!-- Search Bar -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/rounded_edittext_bg">
+
+        <ImageView
+            android:id="@+id/ivCartSearchIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="14dp"
+            android:src="@drawable/ic_search"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <EditText
+            android:id="@+id/etCartSearch"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:hint="Search products to add..."
+            android:inputType="text"
+            android:textSize="15sp"
+            android:gravity="center_vertical"
+            app:layout_constraintEnd_toStartOf="@id/ivCartClearSearch"
+            app:layout_constraintStart_toEndOf="@id/ivCartSearchIcon"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <ImageView
+            android:id="@+id/ivCartClearSearch"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="14dp"
+            android:src="@drawable/ic_cross"
+            android:visibility="gone"
+            android:alpha="0.0"
+            android:tint="#999999"
+            android:clickable="true"
+            android:focusable="true"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- ============================================================== -->
+    <!-- SEARCH RESULTS AREA                                            -->
+    <!-- ============================================================== -->
+    <FrameLayout
+        android:id="@+id/flSearchResultsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:visibility="gone">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCartSearchResults"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp"
+            android:clipToPadding="false" />
+
+        <LinearLayout
+            android:id="@+id/llNoSearchResults"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@drawable/ic_search"
+                android:alpha="0.25"
+                app:tint="#9CA3AF" />
+
+            <TextView
+                android:id="@+id/tvNoResultsTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="No products found"
+                android:textSize="15sp"
+                android:fontFamily="@font/inter_medium"
+                android:textColor="#6B7280" />
+
+            <TextView
+                android:id="@+id/tvNoResultsQuery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Try a different keyword"
+                android:textSize="13sp"
+                android:fontFamily="@font/inter_regular"
+                android:textColor="#9CA3AF" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ============================================================== -->
+    <!-- CART ITEMS AREA                                                -->
+    <!-- ============================================================== -->
+    <FrameLayout
+        android:id="@+id/flCartContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCartItems"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp"
+            android:clipToPadding="false" />
+
+        <LinearLayout
+            android:id="@+id/llEmptyCart"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="visible">
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_cart"
+                android:alpha="0.3" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Your cart is empty"
+                android:textSize="15sp"
+                android:fontFamily="@font/inter_medium"
+                android:textColor="#9CA3AF" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Search and add products above"
+                android:textSize="13sp"
+                android:fontFamily="@font/inter_regular"
+                android:textColor="#B0B5C6" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Bottom Summary Bar -->
+    <LinearLayout
+        android:id="@+id/llCartSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:background="#F8F9FB"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Total Amount"
+                android:textSize="15sp"
+                android:fontFamily="@font/inter_bold"
+                android:textColor="#1B2340" />
+
+            <TextView
+                android:id="@+id/tvCartTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹0"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/inter_bold"
+                android:textColor="#1B2340" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:id="@+id/tvCartTotalCost"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Cost: ₹0"
+                android:textSize="12sp"
+                android:fontFamily="@font/inter_regular"
+                android:textColor="#6B7280" />
+
+            <TextView
+                android:id="@+id/tvCartProfit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Profit: ₹0"
+                android:textSize="12sp"
+                android:fontFamily="@font/inter_medium"
+                android:textColor="#10B981" />
+        </LinearLayout>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnCompleteSale"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@drawable/rounded_save_bg"
+            android:text="Complete Sale"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:fontFamily="@font/inter_bold" />
+    </LinearLayout>
+</LinearLayout>

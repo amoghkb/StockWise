@@ -15,6 +15,13 @@
         android:paddingTop="16dp"
         android:paddingBottom="24dp">
 
+        <View
+            android:layout_width="40dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp"
+            android:background="#E0E0E0" />
+
         <!-- Menu Container -->
         <LinearLayout
             android:id="@+id/menuContainer"
@@ -23,15 +30,39 @@
             android:orientation="vertical"
             android:visibility="visible">
 
-            <!-- "Create New" Title -->
-            <TextView
-                android:id="@+id/tvCreateNew"
-                android:layout_width="wrap_content"
+            <!-- Title row: "Create New" + close (✕) icon -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Create New"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:id="@+id/tvCreateNew"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Create New"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:fontFamily="@font/inter_bold"
+                    android:textColor="#000000" />
+
+                <ImageView
+                    android:id="@+id/ivCloseMenu"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="Close"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_cross"
+                    app:tint="#6B7280" />
+            </LinearLayout>
+
+            <!-- ... rest of the menu items unchanged ... -->
 
             <!-- Add New Category -->
             <LinearLayout
@@ -94,7 +125,6 @@
                     android:src="@drawable/ic_chevron_right"
                     android:tint="#999999" />
             </LinearLayout>
-
             <!-- Add New Item -->
             <LinearLayout
                 android:id="@+id/btnAddItem"
@@ -106,7 +136,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:background="@drawable/rounded_design_bg"
-                android:layout_marginBottom="20dp"
+                android:layout_marginBottom="12dp"
                 android:gravity="center_vertical">
 
                 <FrameLayout
@@ -156,6 +186,68 @@
                     android:src="@drawable/ic_chevron_right"
                     android:tint="#999999" />
             </LinearLayout>
+
+            <!-- Add New Vehicle -->
+            <LinearLayout
+                android:id="@+id/btnAddVehicle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="18dp"
+                android:paddingHorizontal="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="@drawable/rounded_design_bg"
+                android:layout_marginBottom="20dp"
+                android:gravity="center_vertical">
+
+                <FrameLayout
+                    android:layout_width="48dp"
+                    android:layout_height="56dp"
+                    android:background="@drawable/rounded_design_icon_bg">
+
+                    <ImageView
+                        android:id="@+id/ivVehicleIcon"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_vehicle" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp">
+
+                    <TextView
+                        android:id="@+id/tvVehicleTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Add New Vehicle"
+                        android:textSize="16sp"
+                        android:fontFamily="@font/inter_bold"
+                        android:textColor="#000000"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/tvVehicleSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Add a vehicle to your inventory"
+                        android:textSize="14sp"
+                        android:fontFamily="@font/inter_medium"
+                        android:textColor="#666666" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/ivVehicleChevron"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="#999999" />
+            </LinearLayout>
             <!-- Cancel Button -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnCancel"
@@ -163,6 +255,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Cancel"
+                android:textAllCaps="false"
                 android:textColor="@color/black"
                 android:textSize="14sp"
                 android:padding="14dp"
@@ -279,6 +372,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:textAllCaps="false"
                     android:text="Cancel"
                     android:textColor="@color/black"
                     android:textSize="14sp"
@@ -297,6 +391,228 @@
                     android:textColor="@android:color/white"
                     android:textSize="14sp"
                     android:padding="14dp"
+                    android:textAllCaps="false"
+                    android:fontFamily="@font/inter_regular"
+                    android:background="@drawable/rounded_save_bg"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ========== VEHICLE FORM ========== -->
+        <LinearLayout
+            android:id="@+id/vehicleFormContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="20dp">
+
+                <ImageView
+                    android:id="@+id/btnBackToMenuFromVehicle"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:src="@drawable/ic_back_button"
+                    android:padding="4dp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/tvNewVehicle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="New Vehicle"
+                    android:textSize="18sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginStart="12dp" />
+            </LinearLayout>
+
+            <!-- Vehicle Name -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleNameLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vehicle Name"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g., Pulsar, Swift, Fortuner"
+                    android:inputType="text"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Company -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleCompanyLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Company (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleCompany"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g., Bajaj, Maruti Suzuki, Toyota"
+                    android:inputType="text"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Vehicle Type Dropdown -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleTypeLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Vehicle Type"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.appcompat.widget.AppCompatEditText
+                    android:id="@+id/etVehicleType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Select Vehicle Type"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:longClickable="false"
+                    android:inputType="none"
+                    android:drawableEnd="@drawable/ic_down_arrow"
+                    android:drawablePadding="12dp" />
+            </LinearLayout>
+
+            <!-- Model -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleModelLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Model (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleModel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="e.g., NS 200, VXI, 4x4"
+                    android:inputType="text"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Description -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehicleDescLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Description (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/etVehicleDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Additional details about the vehicle"
+                    android:inputType="text|textMultiLine"
+                    android:gravity="top|start"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp"
+                    android:minLines="3"
+                    android:maxLines="6" />
+            </LinearLayout>
+
+            <!-- Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="8dp">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnVehicleCancel"
+                    style="@style/Widget.AppCompat.Button.Borderless"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Cancel"
+                    android:textAllCaps="false"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:padding="14dp"
+                    android:fontFamily="@font/inter_regular"
+                    android:background="@drawable/rounded_design_button"
+                    android:layout_marginEnd="8dp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnSaveVehicle"
+                    style="@style/Widget.AppCompat.Button.Borderless"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Save Vehicle"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:padding="14dp"
                     android:fontFamily="@font/inter_regular"
                     android:background="@drawable/rounded_save_bg"
                     android:layout_marginStart="8dp" />
@@ -311,6 +627,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
+            <!-- Header -->
             <!-- Header -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -337,6 +654,18 @@
                     android:textSize="18sp"
                     android:fontFamily="@font/inter_bold"
                     android:layout_marginStart="12dp" />
+
+                <!-- Delete icon: only visible in edit mode -->
+                <ImageView
+                    android:id="@+id/ivDeleteItem"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_delete"
+                    android:contentDescription="Delete item"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <!-- Image Selection -->
@@ -366,14 +695,22 @@
                     android:clickable="true"
                     android:focusable="true">
 
-                    <ImageView
-                        android:id="@+id/ivItemImage"
+                    <androidx.cardview.widget.CardView
                         android:layout_width="80dp"
                         android:layout_height="80dp"
-                        android:src="@drawable/ic_belts"
-                        android:scaleType="centerCrop"
-                        android:padding="4dp"
-                        android:background="@drawable/rounded_design_bg" />
+                        app:cardCornerRadius="8dp"
+                        app:cardElevation="0dp"
+                        android:clipChildren="true"
+                        android:clipToOutline="true">
+
+                        <ImageView
+                            android:id="@+id/ivItemImage"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:src="@drawable/ic_image"
+                            android:scaleType="centerCrop"
+                            android:padding="2dp" />
+                    </androidx.cardview.widget.CardView>
 
                     <TextView
                         android:id="@+id/tvTapToSelect"
@@ -390,8 +727,9 @@
                         android:id="@+id/ivDeleteImage"
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:src="@drawable/ic_plus"
-                        app:tint="#999999" />
+                        android:src="@drawable/ic_delete"
+                        android:visibility="gone"
+                        android:padding="4dp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -410,8 +748,7 @@
                     android:textSize="14sp"
                     android:fontFamily="@font/inter_bold"
                     android:layout_marginBottom="8dp" />
-
-                <AutoCompleteTextView
+                <androidx.appcompat.widget.AppCompatEditText
                     android:id="@+id/etCategory"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -419,8 +756,14 @@
                     android:padding="14dp"
                     android:background="@drawable/rounded_edittext_bg"
                     android:textSize="16sp"
-                    android:dropDownHeight="wrap_content"
-                    android:completionThreshold="1" />
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:longClickable="false"
+                    android:inputType="none"
+                    android:drawableEnd="@drawable/ic_down_arrow"
+                    android:drawablePadding="12dp" />
             </LinearLayout>
 
             <!-- Item Name -->
@@ -457,7 +800,6 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="18dp">
 
-                <!-- Original Price -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -485,7 +827,6 @@
                         android:textSize="16sp" />
                 </LinearLayout>
 
-                <!-- Selling Price -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -541,6 +882,74 @@
                     android:textSize="16sp" />
             </LinearLayout>
 
+            <!-- Vehicle Multi-Select Dropdown -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="18dp">
+
+                <TextView
+                    android:id="@+id/tvVehiclesLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Assign Vehicles (Optional)"
+                    android:textSize="14sp"
+                    android:fontFamily="@font/inter_bold"
+                    android:textColor="#000000"
+                    android:layout_marginBottom="8dp" />
+
+                <androidx.appcompat.widget.AppCompatEditText
+                    android:id="@+id/etVehicles"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Select Vehicles"
+                    android:padding="14dp"
+                    android:background="@drawable/rounded_edittext_bg"
+                    android:textSize="16sp"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:longClickable="false"
+                    android:inputType="none"
+                    android:drawableEnd="@drawable/ic_down_arrow"
+                    android:drawablePadding="12dp" />
+
+                <LinearLayout
+                    android:id="@+id/selectedVehiclesContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:id="@+id/tvSelectedVehiclesTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Selected Vehicles:"
+                        android:textSize="13sp"
+                        android:fontFamily="@font/inter_medium"
+                        android:textColor="#666666"
+                        android:layout_marginBottom="6dp" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:scrollbars="none"
+                        android:paddingBottom="4dp">
+
+                        <LinearLayout
+                            android:id="@+id/vehicleChipsContainer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal" />
+
+                    </HorizontalScrollView>
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- Description -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -588,6 +997,7 @@
                     android:text="Cancel"
                     android:textColor="@color/black"
                     android:textSize="14sp"
+                    android:textAllCaps="false"
                     android:padding="14dp"
                     android:fontFamily="@font/inter_regular"
                     android:background="@drawable/rounded_design_button"
@@ -600,6 +1010,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Save Item"
+                    android:textAllCaps="false"
                     android:textColor="@android:color/white"
                     android:textSize="14sp"
                     android:padding="14dp"
