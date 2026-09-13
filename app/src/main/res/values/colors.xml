@@ -37,4 +37,7 @@
     <color name="text_secondary">#6B7280</color>
     <color name="today_highlight">#2F6FED</color>
 
+
+    <color name="switch_thumb">#FFFFFF</color>
+    <color name="switch_track">#0090FE</color>
 </resources>

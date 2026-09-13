@@ -1,6 +1,7 @@
 package com.example.stockwise
 
 import android.os.Bundle
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
@@ -8,6 +9,7 @@ import com.example.stockwise.ui.fragment.BeltsFragment
 import com.example.stockwise.ui.fragment.CalendarFragment
 import com.example.stockwise.ui.fragment.DashboardFragment
 import com.example.stockwise.ui.fragment.ProductsFragment
+import com.example.stockwise.ui.fragment.ProfileFragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -16,9 +18,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var bottomNavigationView: BottomNavigationView
 
-    // Track the current tab by TAG (a String), not by holding a live Fragment
-    // reference. Tags survive process death / config changes cleanly via
-    // onSaveInstanceState; a cached Fragment reference does not.
     private var activeTag: String = TAG_DASHBOARD
 
     companion object {
@@ -26,6 +25,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG_PRODUCTS = "tag_products"
         private const val TAG_BELTS = "tag_belts"
         private const val TAG_CALENDAR = "tag_calendar"
+        private const val TAG_PROFILE = "tag_profile"
         private const val KEY_ACTIVE_TAG = "key_active_tag"
     }
 
@@ -36,16 +36,15 @@ class MainActivity : AppCompatActivity() {
         bottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigationView.labelVisibilityMode = BottomNavigationView.LABEL_VISIBILITY_LABELED
 
+        findViewById<ImageView>(R.id.iv_profile).setOnClickListener {
+            openProfileFragment()
+        }
+
         activeTag = savedInstanceState?.getString(KEY_ACTIVE_TAG) ?: TAG_DASHBOARD
 
         if (savedInstanceState == null) {
-            // Fresh start: create + show the first tab.
             showFragment(activeTag)
         } else {
-            // FragmentManager has already restored all previously-added
-            // fragments (correctly hidden/shown) by this point. We don't
-            // need to guess from view visibility or re-attach anything —
-            // just make sure the bottom nav highlight matches activeTag.
             syncBottomNavSelection(activeTag)
         }
 
@@ -58,9 +57,10 @@ class MainActivity : AppCompatActivity() {
                 else -> return@setOnItemSelectedListener false
             }
 
+         
+            popActivityBackStackIfAny()
+
             if (tag == activeTag) {
-                // Re-tapping the current tab: just pop it back to its root,
-                // no tab switch needed.
                 closeNestedFragments(tag)
             } else {
                 closeNestedFragments(tag)
@@ -75,18 +75,37 @@ class MainActivity : AppCompatActivity() {
         outState.putString(KEY_ACTIVE_TAG, activeTag)
     }
 
+    // ==========================================
+    // PROFILE
+    // ==========================================
+
+    private fun openProfileFragment() {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.content_frame, ProfileFragment(), TAG_PROFILE)
+            .addToBackStack(TAG_PROFILE)
+            .commit()
+    }
+
+    // ==========================================
+    // BACK STACK CLEANUP
+    // ==========================================
+
     /**
-     * Clears any child fragments the given tab has pushed on its own
-     * back stack (e.g. StockProcureFragment nested inside CalendarFragment),
-     * so the tab's root screen is what's visible next.
-     *
-     * Uses the normal async popBackStack()/commit() — NOT the Immediate /
-     * *AllowingStateLoss variants. Those force a synchronous main-thread
-     * execution on every single nav click, which is what was causing the
-     * visible lag. The async calls get queued on the main thread and run
-     * before the next frame is drawn, so there's no visual difference,
-     * just no forced synchronous work.
+     * Pops every fragment that was pushed on top of a tab via the activity's
+     * back stack (StockProcureFragment from CalendarFragment, ProfileFragment,
+     * etc.). Called before a tab switch so the newly chosen tab is what shows.
      */
+    private fun popActivityBackStackIfAny() {
+        val fm = supportFragmentManager
+        if (fm.backStackEntryCount > 0) {
+            fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        }
+    }
+
+    // ==========================================
+    // TAB NAVIGATION
+    // ==========================================
+
     private fun closeNestedFragments(tag: String) {
         val current = supportFragmentManager.findFragmentByTag(tag) ?: return
         val childFm = current.childFragmentManager
@@ -98,6 +117,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showFragment(tag: String) {
         val fm = supportFragmentManager
+
+        // Safety net: if profile is still around for any reason, pop it.
+        if (fm.findFragmentByTag(TAG_PROFILE) != null) {
+            fm.popBackStack(TAG_PROFILE, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        }
+
         val current = fm.findFragmentByTag(activeTag)
         var target = fm.findFragmentByTag(tag)
 

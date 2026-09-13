@@ -27,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.stockwise.R
+import com.example.stockwise.auth.AuthSessionManager
 import com.example.stockwise.commons.toastError
 import com.example.stockwise.commons.toastSuccess
 import com.example.stockwise.data.entities.DailySalesSummary
@@ -61,6 +62,9 @@ class DashboardFragment : Fragment() {
 
     private val sharedViewModel: SharedDataViewModel by activityViewModels()
     private lateinit var lowStockAdapter: LowStockAdapter
+
+    private lateinit var session: AuthSessionManager
+
 
     // ============================================================
     // SYNC STATE
@@ -98,6 +102,9 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        session = AuthSessionManager.getInstance(requireContext())
+        sharedViewModel.setUserName(session.getUserName())
+
         setupRecyclerView()
         setupClickListeners()
         observeData()
@@ -108,6 +115,9 @@ class DashboardFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+
+        sharedViewModel.setUserName(session.getUserName())
+
         if (!isFirstLoad) {
             sharedViewModel.refreshDashboardData()
         }

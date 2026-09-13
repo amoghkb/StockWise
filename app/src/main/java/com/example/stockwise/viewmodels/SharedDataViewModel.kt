@@ -69,9 +69,21 @@ class SharedDataViewModel @Inject constructor(
 
     fun clearSaleSuccessEvent() { _saleSuccessEvent.value = null }
 
+    // ===== USER NAME (used in greeting) =====
+    private var userName: String = "User"
+
     init {
         setupGreetingAndDate()
         refreshDashboardData()
+    }
+
+    /**
+     * Sets the display name for the greeting.
+     * Called by the Dashboard fragment after reading the name from AuthSessionManager.
+     */
+    fun setUserName(name: String) {
+        userName = name.ifBlank { "User" }
+        setupGreetingAndDate()
     }
 
     private fun setupGreetingAndDate() {
@@ -84,7 +96,15 @@ class SharedDataViewModel @Inject constructor(
             in 17..20 -> "Good Evening"
             else -> "Good Night"
         }
-        _greeting.value = "$greetingText, Bala!"
+
+        val displayName = userName
+            .trim()
+            .split(" ")
+            .firstOrNull()
+            ?.replaceFirstChar { it.uppercaseChar() }
+            ?: "User"
+
+        _greeting.value = "$greetingText, $displayName!"
 
         val dateFormat = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
         _currentDate.value = dateFormat.format(Date())
@@ -411,7 +431,6 @@ class SharedDataViewModel @Inject constructor(
     suspend fun deleteSupplier(supplier: Supplier) {
         supplierRepository.softDeleteSupplier(supplier.id)
     }
-
 
 
     suspend fun getSupplierCount(): Int = supplierRepository.getActiveSupplierCount()

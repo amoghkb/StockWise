@@ -41,7 +41,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:fontFamily="@font/inter_medium"
-                    android:text="Manage automotive vendors &amp; contacts"
+                    android:text="Manage vendors &amp; contacts"
                     android:textColor="#6B7280"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -50,7 +50,7 @@
                 android:id="@+id/btnAddSupplier"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:backgroundTint="#0056B3"
+                android:backgroundTint="@color/stock_wise_secondary"
                 android:fontFamily="@font/inter_bold"
                 android:text="Add Supplier"
                 android:textAllCaps="false"
@@ -136,16 +136,11 @@
                 android:orientation="horizontal"
                 android:padding="16dp">
 
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_shop"
-                    app:tint="#0056B3" />
+
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:fontFamily="@font/inter_medium"
                     android:text="Total Registered Vendors"

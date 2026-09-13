@@ -887,6 +887,13 @@ class ProductsFragment : Fragment() {
             sheetBinding.ivDeleteImage.visibility = View.GONE
             sheetBinding.ivDeleteImage.setOnClickListener(null)
 
+            sheetBinding.ivCloseMenu.setOnClickListener {
+                bottomSheetDropdownPopup?.dismiss()
+                vehicleTypePopup?.dismiss()
+                vehicleDropdownPopup?.dismiss()
+                currentSheetBinding = null
+                sheet.dismiss()
+            }
             loadVehiclesForDropdown()
         }
 

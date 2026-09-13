@@ -15,8 +15,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="10dp"
         android:src="@drawable/ic_back_button"
-        android:background="@drawable/rounded_circle_button"
-        android:padding="9dp"
+        android:padding="5dp"
         android:contentDescription="Back"
         android:clickable="true"
         android:focusable="true"
@@ -148,11 +147,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <ImageView
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:src="@drawable/ic_item"
-            android:alpha="0.3" />
+
 
         <TextView
             android:layout_width="wrap_content"
