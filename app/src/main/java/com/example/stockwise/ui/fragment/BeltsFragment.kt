@@ -50,6 +50,12 @@ class BeltsFragment : Fragment() {
     private var currentSheetBinding: AddSupplierSheetBinding? = null
     private var currentSheet: ReusableBottomSheet? = null
 
+    /**
+     * When non-null, the bottom sheet is in "edit" mode and Save will update
+     * this supplier instead of inserting a new one.
+     */
+    private var supplierBeingEdited: Supplier? = null
+
     private var collectJob: Job? = null
 
     override fun onCreateView(
@@ -76,6 +82,7 @@ class BeltsFragment : Fragment() {
             suppliers = emptyList(),
             onCallClick = { supplier -> makeCall(supplier.phoneNumber) },
             onWhatsAppClick = { supplier -> openWhatsApp(supplier.phoneNumber) },
+            onUpdateClick = { supplier -> openEditSupplierSheet(supplier) },
             onDeleteClick = { supplier -> confirmDeleteSupplier(supplier) }
         )
         rvSuppliers.adapter = adapter
@@ -98,6 +105,7 @@ class BeltsFragment : Fragment() {
         collectJob = null
         currentSheetBinding = null
         currentSheet = null
+        supplierBeingEdited = null
     }
 
     // ==========================================
@@ -105,7 +113,6 @@ class BeltsFragment : Fragment() {
     // ==========================================
 
     private fun setupSearch() {
-        // Start hidden
         ivClearSearch.alpha = 0f
         ivClearSearch.visibility = View.GONE
 
@@ -294,10 +301,8 @@ class BeltsFragment : Fragment() {
     private fun softDeleteSupplier(supplier: Supplier) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Soft delete → sets isDeleted = 1, deletedAt = now
                 sharedViewModel.deleteSupplier(supplier)
                 "Supplier deleted".toastSuccess(requireContext())
-                // No manual refresh — the Flow will re-emit and the list updates
             } catch (e: Exception) {
                 "Failed to delete: ${e.message}".toastError(requireContext())
             }
@@ -322,10 +327,24 @@ class BeltsFragment : Fragment() {
     }
 
     // ==========================================
-    // ADD SUPPLIER BOTTOM SHEET
+    // ADD / EDIT SUPPLIER BOTTOM SHEET
     // ==========================================
 
     private fun openAddSupplierSheet() {
+        supplierBeingEdited = null
+        showSupplierSheet(prefill = null)
+    }
+
+    private fun openEditSupplierSheet(supplier: Supplier) {
+        supplierBeingEdited = supplier
+        showSupplierSheet(prefill = supplier)
+    }
+
+    /**
+     * Shows the same bottom sheet used for adding, optionally pre-filled
+     * with an existing supplier's values.
+     */
+    private fun showSupplierSheet(prefill: Supplier?) {
         val sheet = ReusableBottomSheet.newInstance(layoutRes = R.layout.add_supplier_sheet)
 
         sheet.setContentBinder { content ->
@@ -333,12 +352,23 @@ class BeltsFragment : Fragment() {
             currentSheetBinding = binding
             currentSheet = sheet
 
+            if (prefill != null) {
+                binding.etSupplierName.setText(prefill.companyName)
+                binding.etContactPerson.setText(
+                    prefill.contactPerson.takeUnless { it == "—" } ?: ""
+                )
+                binding.etPhoneNumber.setText(
+                    prefill.phoneNumber.takeUnless { it == "—" } ?: ""
+                )
+                binding.etAddress.setText(prefill.address.orEmpty())
+            }
+
             binding.btnClose.setOnClickListener { dismissSheet() }
             binding.btnCancel.setOnClickListener { dismissSheet() }
             binding.btnSaveSupplier.setOnClickListener { saveSupplier() }
         }
 
-        sheet.show(parentFragmentManager, "AddSupplierSheet")
+        sheet.show(parentFragmentManager, "SupplierSheet")
     }
 
     private fun saveSupplier() {
@@ -354,21 +384,35 @@ class BeltsFragment : Fragment() {
             return
         }
 
+        val editing = supplierBeingEdited
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                sharedViewModel.addSupplier(
-                    companyName = name,
-                    category = "General",
-                    contactPerson = contact,
-                    phoneNumber = phone,
-                    address = address
-                )
+                if (editing != null) {
+                    sharedViewModel.updateSupplier(
+                        supplier = editing,
+                        companyName = name,
+                        category = editing.category,
+                        contactPerson = contact,
+                        phoneNumber = phone,
+                        address = address
+                    )
+                } else {
+                    sharedViewModel.addSupplier(
+                        companyName = name,
+                        category = "General",
+                        contactPerson = contact,
+                        phoneNumber = phone,
+                        address = address
+                    )
+                }
 
                 if (etSearch.text.isNotEmpty()) {
                     etSearch.text.clear()
                 }
 
-                "Supplier added successfully!".toastSuccess(requireContext())
+                val msg = if (editing != null) "Supplier updated" else "Supplier added successfully!"
+                msg.toastSuccess(requireContext())
                 dismissSheet()
             } catch (e: Exception) {
                 "Failed to save supplier: ${e.message}".toastError(requireContext())
@@ -380,6 +424,7 @@ class BeltsFragment : Fragment() {
         val sheet = currentSheet
         currentSheetBinding = null
         currentSheet = null
+        supplierBeingEdited = null
         sheet?.dismiss()
     }
 }

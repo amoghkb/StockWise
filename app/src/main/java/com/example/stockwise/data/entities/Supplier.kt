@@ -15,7 +15,7 @@ data class Supplier(
     val category: String,
     val contactPerson: String,
     val phoneNumber: String,
-    val address: String,
+    val address: String? = null,
 
     val createdAt: Date = Date(),
     val updatedAt: Date = Date(),

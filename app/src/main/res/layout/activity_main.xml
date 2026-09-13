@@ -31,16 +31,19 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <!-- Profile Icon — right aligned -->
-        <ImageView
-            android:id="@+id/iv_profile"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_profile"
-            android:contentDescription="Profile"
+        <!-- Profile avatar — initials in a circle, right aligned -->
+        <TextView
+            android:id="@+id/tv_profile"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_profile_avatar"
+            android:gravity="center"
+            android:text="A"
+            android:textColor="#0056B3"
+            android:textSize="14sp"
+            android:fontFamily="@font/inter_bold"
             android:clickable="true"
             android:focusable="true"
-            android:background="?attr/selectableItemBackgroundBorderless"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
