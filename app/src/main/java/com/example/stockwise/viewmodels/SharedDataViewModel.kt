@@ -431,7 +431,39 @@ class SharedDataViewModel @Inject constructor(
     suspend fun deleteSupplier(supplier: Supplier) {
         supplierRepository.softDeleteSupplier(supplier.id)
     }
+    /**
+     * Update an existing supplier's fields.
+     * Preserves id, createdAt, and soft-delete flags.
+     */
+    suspend fun updateSupplier(
+        supplier: Supplier,
+        companyName: String,
+        category: String = supplier.category,
+        contactPerson: String? = null,
+        phoneNumber: String? = null,
+        address: String? = null
+    ) {
+        val updatedInitials = companyName
+            .trim()
+            .split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+            .joinToString("")
+            .ifEmpty { "SP" }
 
+        val updated = supplier.copy(
+            initials = updatedInitials,
+            companyName = companyName.trim(),
+            category = category,
+            contactPerson = contactPerson?.trim().orEmpty().ifEmpty { "—" },
+            phoneNumber = phoneNumber?.trim().orEmpty().ifEmpty { "—" },
+            address = address?.trim()?.takeIf { it.isNotEmpty() },
+            updatedAt = Date()
+        )
+
+        supplierRepository.updateSupplier(updated)
+    }
 
     suspend fun getSupplierCount(): Int = supplierRepository.getActiveSupplierCount()
 }

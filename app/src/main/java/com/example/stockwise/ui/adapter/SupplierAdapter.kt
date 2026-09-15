@@ -16,6 +16,7 @@ class SupplierAdapter(
     private var suppliers: List<Supplier>,
     private val onCallClick: (Supplier) -> Unit = {},
     private val onWhatsAppClick: (Supplier) -> Unit = {},
+    private val onUpdateClick: (Supplier) -> Unit = {},
     private val onDeleteClick: (Supplier) -> Unit = {}
 ) : RecyclerView.Adapter<SupplierAdapter.SupplierViewHolder>() {
 
@@ -43,19 +44,25 @@ class SupplierAdapter(
         holder.tvCompanyName.text = supplier.companyName
         holder.tvContactPerson.text = supplier.contactPerson
         holder.tvPhone.text = supplier.phoneNumber
-        holder.tvAddress.text = supplier.address
+
+        val rawAddress = supplier.address?.trim().orEmpty()
+        holder.tvAddress.text = if (rawAddress.isEmpty()) {
+            "Address not provided"
+        } else {
+            rawAddress
+        }
 
         holder.btnCall?.setOnClickListener { onCallClick(supplier) }
         holder.btnWhatsApp?.setOnClickListener { onWhatsAppClick(supplier) }
 
-        // 3-dot overflow → custom white popup with Delete
         holder.btnOverflow?.setOnClickListener { anchor ->
-            showOverflowMenu(anchor) {
-                onDeleteClick(supplier)
-            }
+            showOverflowMenu(
+                anchor = anchor,
+                onUpdate = { onUpdateClick(supplier) },
+                onDelete = { onDeleteClick(supplier) }
+            )
         }
     }
-
     override fun getItemCount(): Int = suppliers.size
 
     fun updateList(newList: List<Supplier>) {
@@ -64,47 +71,46 @@ class SupplierAdapter(
     }
 
     // ==========================================
-    // Custom overflow popup — white bg, small, aligned to the right
+    // Custom overflow popup — Update + Delete
     // ==========================================
-    private fun showOverflowMenu(anchor: View, onDelete: () -> Unit) {
+    private fun showOverflowMenu(
+        anchor: View,
+        onUpdate: () -> Unit,
+        onDelete: () -> Unit
+    ) {
         val context = anchor.context
 
-        // Inflate the small menu layout
         val menuView = LayoutInflater.from(context)
             .inflate(R.layout.popup_supplier_menu, null)
 
-        // Create the popup
+        // Convert 140dp to pixels
+        val density = context.resources.displayMetrics.density
+        val popupWidth = (140 * density).toInt()
+
         val popup = PopupWindow(
             menuView,
+            popupWidth,
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true // focusable so it dismisses on outside tap
+            true
         ).apply {
-            // Transparent outer background so our rounded drawable shows
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             elevation = 8f
             isOutsideTouchable = true
         }
 
-        // Wire up the Delete row
+        menuView.findViewById<View>(R.id.menuUpdate).setOnClickListener {
+            popup.dismiss()
+            onUpdate()
+        }
+
         menuView.findViewById<View>(R.id.menuDelete).setOnClickListener {
             popup.dismiss()
             onDelete()
         }
 
-        // Show it aligned to the right edge of the anchor, just below it
-        menuView.measure(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        )
-        val popupWidth = menuView.measuredWidth
-        val xOffset = -(popupWidth - anchor.width) // align right edges
-        val yOffset = 8 // small gap below the 3-dot
+        val xOffset = -(popupWidth - anchor.width)
+        val yOffset = 8
 
         popup.showAsDropDown(anchor, xOffset, yOffset)
-    }
-
-    companion object {
-        private const val MENU_DELETE = 1
     }
 }

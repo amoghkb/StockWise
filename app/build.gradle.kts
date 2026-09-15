@@ -56,6 +56,7 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     kapt("com.github.bumptech.glide:compiler:4.16.0") // Glide has no KSP compiler yet, keep on kapt
 
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     // Room — on KSP
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

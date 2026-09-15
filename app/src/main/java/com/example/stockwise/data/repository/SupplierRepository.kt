@@ -36,7 +36,7 @@ class SupplierRepository @Inject constructor(
             category = category,
             contactPerson = contactPerson?.trim().orEmpty().ifEmpty { "—" },
             phoneNumber = phoneNumber?.trim().orEmpty().ifEmpty { "—" },
-            address = address?.trim().orEmpty().ifEmpty { "Address not provided" },
+            address = address?.trim()?.takeIf { it.isNotEmpty() },
             createdAt = Date(),
             updatedAt = Date()
         )
@@ -52,7 +52,6 @@ class SupplierRepository @Inject constructor(
     suspend fun softDeleteSupplier(supplierId: String) {
         supplierDao.softDeleteSupplier(supplierId, System.currentTimeMillis())
     }
-
 
     fun getAllActiveSuppliers(): Flow<List<Supplier>> = supplierDao.getAllActiveSuppliers()
 

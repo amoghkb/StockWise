@@ -7,40 +7,37 @@
     android:background="#FFFFFF"
     tools:context=".ui.fragment.DashboardFragment">
 
-    <!-- ===== MAIN CONTENT (Visible when data is loaded) ===== -->
-    <ScrollView
-        android:id="@+id/scroll_main_content"
+    <!-- ===== MAIN CONTENT (wrapped in SwipeRefreshLayout) ===== -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:overScrollMode="never"
-        android:scrollbars="none"
-        android:background="#FFFFFF"
         android:visibility="gone">
 
-        <LinearLayout
+        <ScrollView
+            android:id="@+id/scroll_main_content"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="80dp">
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:scrollbars="none"
+            android:background="#FFFFFF">
 
-            <!-- ===== Greeting with Sync Button ===== -->
-            <RelativeLayout
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp">
+                android:orientation="vertical"
+                android:paddingBottom="80dp">
 
+                <!-- ===== Greeting (sync button removed) ===== -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
-                    android:layout_toStartOf="@+id/btn_sync"
-                    android:layout_marginEnd="12dp"
-                    android:orientation="vertical"
-                    android:gravity="center_vertical">
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/tv_greeting"
@@ -61,333 +58,298 @@
                         android:textSize="13sp"
                         android:textColor="#8A8FA3"
                         android:fontFamily="@font/inter_regular" />
-
                 </LinearLayout>
 
-                <!-- Sync Button at Top Right -->
-                <ImageButton
-                    android:id="@+id/btn_sync"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:src="@drawable/ic_sync"
-                    android:background="@drawable/sync_button_bg"
-                    android:scaleType="centerInside"
-                    android:padding="10dp"
-                    android:contentDescription="Sync" />
-
-            </RelativeLayout>
-
-            <!-- ===== Today's Sales Card ===== -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="#FFFFFF">
-
-                <RelativeLayout
+                <!-- ===== Today's Sales Card ===== -->
+                <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/rounded_design_bg"
-                    android:padding="18dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_alignParentTop="true"
-                        android:text="Today's Sales"
-                        android:textColor="#6B7280"
-                        android:textSize="12sp"
-                        android:fontFamily="@font/inter_medium" />
-
-                    <ImageView
-                        android:id="@+id/ic_sales"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:layout_alignParentEnd="true"
-                        android:layout_alignParentTop="true"
-                        android:src="@drawable/ic_sale"
-                        app:tint="#ECEEF0"
-                        android:contentDescription="Sales icon" />
-
-                    <TextView
-                        android:id="@+id/tv_today_sales"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_below="@id/ic_sales"
-                        android:layout_alignParentStart="true"
-                        android:layout_marginTop="8dp"
-                        android:text="₹0"
-                        android:textColor="#1B2340"
-                        android:textSize="30sp"
-                        android:textStyle="bold"
-                        android:fontFamily="@font/inter_bold" />
-
-                </RelativeLayout>
-
-            </androidx.cardview.widget.CardView>
-
-            <!-- ===== Stats Row: Stock Alerts / Total Items ===== -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:layout_marginBottom="12dp"
-                android:weightSum="2">
-
-                <!-- Stock Alerts Card -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
-                    android:background="@drawable/rounded_design_bg"
-                    android:orientation="vertical">
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="#FFFFFF">
 
                     <RelativeLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:padding="16dp">
+                        android:background="@drawable/rounded_design_bg"
+                        android:padding="18dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_alignParentStart="true"
                             android:layout_alignParentTop="true"
-                            android:text="Stock Alerts"
+                            android:text="Today's Sales"
                             android:textColor="#6B7280"
-                            android:textSize="11sp"
+                            android:textSize="12sp"
                             android:fontFamily="@font/inter_medium" />
 
                         <ImageView
-                            android:id="@+id/ic_stock_alert"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
+                            android:id="@+id/ic_sales"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
                             android:layout_alignParentEnd="true"
                             android:layout_alignParentTop="true"
-                            android:src="@drawable/ic_alert_triangle"
+                            android:src="@drawable/ic_sale"
                             app:tint="#ECEEF0"
-                            android:contentDescription="Stock alert icon" />
+                            android:contentDescription="Sales icon" />
 
                         <TextView
-                            android:id="@+id/tv_stock_alerts"
+                            android:id="@+id/tv_today_sales"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_below="@id/ic_stock_alert"
+                            android:layout_below="@id/ic_sales"
                             android:layout_alignParentStart="true"
                             android:layout_marginTop="8dp"
-                            android:text="0"
-                            android:textColor="#F04438"
-                            android:textSize="26sp"
-                            android:textStyle="bold"
-                            android:fontFamily="@font/inter_bold" />
-
-                    </RelativeLayout>
-
-                </LinearLayout>
-
-                <!-- Total Items Card -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:background="@drawable/rounded_design_bg"
-                    android:orientation="vertical">
-
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentStart="true"
-                            android:layout_alignParentTop="true"
-                            android:text="Total Items"
-                            android:textColor="#6B7280"
-                            android:textSize="11sp"
-                            android:fontFamily="@font/inter_medium" />
-
-                        <ImageView
-                            android:id="@+id/ic_total_items"
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:layout_alignParentEnd="true"
-                            android:layout_alignParentTop="true"
-                            android:src="@drawable/ic_item"
-                            app:tint="#ECEEF0"
-                            android:contentDescription="Total items icon" />
-
-                        <TextView
-                            android:id="@+id/tv_total_items"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_below="@id/ic_total_items"
-                            android:layout_alignParentStart="true"
-                            android:layout_marginTop="8dp"
-                            android:text="0"
+                            android:text="₹0"
                             android:textColor="#1B2340"
-                            android:textSize="26sp"
+                            android:textSize="30sp"
                             android:textStyle="bold"
                             android:fontFamily="@font/inter_bold" />
 
                     </RelativeLayout>
+                </androidx.cardview.widget.CardView>
 
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <!-- ===== Low Stock Section Header ===== -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="8dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Low Stock"
-                    android:textColor="#1B2340"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/inter_bold" />
-
-                <TextView
-                    android:id="@+id/tv_low_stock_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0 items"
-                    android:textColor="#8A8FA3"
-                    android:textSize="12sp"
-                    android:fontFamily="@font/inter_regular" />
-
-            </LinearLayout>
-
-            <!-- ===== Low Stock List Card ===== -->
-            <!-- ===== Low Stock List Card ===== -->
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="250dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:background="@drawable/rounded_design_bg"
-                android:padding="14dp">
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_low_stock"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:overScrollMode="never"
-                    android:scrollbars="vertical" />
-
-                <!-- Empty state shown when there are no low-stock items -->
+                <!-- ===== Stats Row ===== -->
                 <LinearLayout
-                    android:id="@+id/ll_empty_low_stock"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:visibility="gone">
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="12dp"
+                    android:weightSum="2">
 
-
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="No low stock items"
-                        android:textColor="#6B7280"
-                        android:textSize="14sp"
-                        android:fontFamily="@font/inter_medium" />
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/rounded_design_bg"
+                        android:orientation="vertical">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentStart="true"
+                                android:layout_alignParentTop="true"
+                                android:text="Stock Alerts"
+                                android:textColor="#6B7280"
+                                android:textSize="11sp"
+                                android:fontFamily="@font/inter_medium" />
+
+                            <ImageView
+                                android:id="@+id/ic_stock_alert"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_alignParentTop="true"
+                                android:src="@drawable/ic_alert_triangle"
+                                app:tint="#ECEEF0"
+                                android:contentDescription="Stock alert icon" />
+
+                            <TextView
+                                android:id="@+id/tv_stock_alerts"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@id/ic_stock_alert"
+                                android:layout_alignParentStart="true"
+                                android:layout_marginTop="8dp"
+                                android:text="0"
+                                android:textColor="#F04438"
+                                android:textSize="26sp"
+                                android:textStyle="bold"
+                                android:fontFamily="@font/inter_bold" />
+                        </RelativeLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="All products have sufficient stock"
-                        android:textColor="#9CA3AF"
-                        android:textSize="12sp"
-                        android:fontFamily="@font/inter_regular"
-                        android:gravity="center" />
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/rounded_design_bg"
+                        android:orientation="vertical">
 
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="16dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentStart="true"
+                                android:layout_alignParentTop="true"
+                                android:text="Total Items"
+                                android:textColor="#6B7280"
+                                android:textSize="11sp"
+                                android:fontFamily="@font/inter_medium" />
+
+                            <ImageView
+                                android:id="@+id/ic_total_items"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_alignParentEnd="true"
+                                android:layout_alignParentTop="true"
+                                android:src="@drawable/ic_item"
+                                app:tint="#ECEEF0"
+                                android:contentDescription="Total items icon" />
+
+                            <TextView
+                                android:id="@+id/tv_total_items"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_below="@id/ic_total_items"
+                                android:layout_alignParentStart="true"
+                                android:layout_marginTop="8dp"
+                                android:text="0"
+                                android:textColor="#1B2340"
+                                android:textSize="26sp"
+                                android:textStyle="bold"
+                                android:fontFamily="@font/inter_bold" />
+                        </RelativeLayout>
+                    </LinearLayout>
                 </LinearLayout>
 
-            </RelativeLayout>
-
-            <!-- ===== Weekly Sales Chart Section ===== -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp">
-
+                <!-- ===== Low Stock Section Header ===== -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="12dp">
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="8dp">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Weekly Sales"
+                        android:text="Low Stock"
                         android:textColor="#1B2340"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:fontFamily="@font/inter_bold" />
 
                     <TextView
-                        android:id="@+id/tv_chart_legend"
+                        android:id="@+id/tv_low_stock_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Last 7 days"
+                        android:text="0 items"
                         android:textColor="#8A8FA3"
                         android:textSize="12sp"
                         android:fontFamily="@font/inter_regular" />
-
                 </LinearLayout>
 
-                <!-- Bar Chart -->
-                <androidx.cardview.widget.CardView
+                <!-- ===== Low Stock List Card ===== -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="250dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="@drawable/rounded_design_bg"
+                    android:padding="14dp">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_low_stock"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:overScrollMode="never"
+                        android:scrollbars="vertical" />
+
+                    <LinearLayout
+                        android:id="@+id/ll_empty_low_stock"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="No low stock items"
+                            android:textColor="#6B7280"
+                            android:textSize="14sp"
+                            android:fontFamily="@font/inter_medium" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="All products have sufficient stock"
+                            android:textColor="#9CA3AF"
+                            android:textSize="12sp"
+                            android:fontFamily="@font/inter_regular"
+                            android:gravity="center" />
+                    </LinearLayout>
+                </RelativeLayout>
+
+                <!-- ===== Weekly Sales Chart Section ===== -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    app:cardBackgroundColor="#FFFFFF"
-                    android:layout_marginBottom="8dp">
+                    android:orientation="vertical"
+                    android:layout_marginTop="16dp"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp">
 
-                    <com.github.mikephil.charting.charts.BarChart
-                        android:id="@+id/chart_weekly_sales"
+                    <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="220dp"
-                        android:padding="8dp" />
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
 
-                </androidx.cardview.widget.CardView>
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Weekly Sales"
+                            android:textColor="#1B2340"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:fontFamily="@font/inter_bold" />
 
+                        <TextView
+                            android:id="@+id/tv_chart_legend"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Last 7 days"
+                            android:textColor="#8A8FA3"
+                            android:textSize="12sp"
+                            android:fontFamily="@font/inter_regular" />
+                    </LinearLayout>
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#FFFFFF"
+                        android:layout_marginBottom="8dp">
+
+                        <com.github.mikephil.charting.charts.BarChart
+                            android:id="@+id/chart_weekly_sales"
+                            android:layout_width="match_parent"
+                            android:layout_height="220dp"
+                            android:padding="8dp" />
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
             </LinearLayout>
-
-        </LinearLayout>
-
-    </ScrollView>
+        </ScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- ===== FULL PAGE SKELETON LOADING ===== -->
     <com.facebook.shimmer.ShimmerFrameLayout
@@ -410,12 +372,10 @@
             android:fillViewport="true">
 
             <include layout="@layout/dashboard_skeleton" />
-
         </ScrollView>
-
     </com.facebook.shimmer.ShimmerFrameLayout>
 
-    <!-- ===== FAB Button ===== -->
+    <!-- ===== FAB ===== -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_add_item"
         android:layout_width="56dp"
@@ -432,5 +392,4 @@
         app:rippleColor="#33FFFFFF"
         app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Circle"
         android:contentDescription="Add Item" />
-
 </FrameLayout>

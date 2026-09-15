@@ -1,10 +1,7 @@
 package com.example.stockwise.ui.fragment
 
-import android.animation.ObjectAnimator
 import android.content.Context
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -18,6 +15,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatButton
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -62,18 +60,9 @@ class DashboardFragment : Fragment() {
 
     private val sharedViewModel: SharedDataViewModel by activityViewModels()
     private lateinit var lowStockAdapter: LowStockAdapter
-
     private lateinit var session: AuthSessionManager
 
-
-    // ============================================================
-    // SYNC STATE
-    // ============================================================
-
-    private var isSyncing = false
-    private var rotateAnimator: ObjectAnimator? = null
-    private val SYNC_DURATION = 1000L
-    private val handler = Handler(Looper.getMainLooper())
+    /** Skeleton is only shown on the very first load, never during pull-to-refresh. */
     private var isFirstLoad = true
 
     // ============================================================
@@ -105,6 +94,7 @@ class DashboardFragment : Fragment() {
         session = AuthSessionManager.getInstance(requireContext())
         sharedViewModel.setUserName(session.getUserName())
 
+        setupSwipeRefresh()
         setupRecyclerView()
         setupClickListeners()
         observeData()
@@ -113,29 +103,32 @@ class DashboardFragment : Fragment() {
         sharedViewModel.refreshDashboardData()
     }
 
-    override fun onResume() {
-        super.onResume()
-
-        sharedViewModel.setUserName(session.getUserName())
-
-        if (!isFirstLoad) {
-            sharedViewModel.refreshDashboardData()
-        }
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
-        handler.removeCallbacksAndMessages(null)
-        rotateAnimator?.cancel()
-        rotateAnimator = null
-
         cartBottomSheet?.dismiss()
         cartBottomSheet = null
         cartAdapter = null
         cartSearchAdapter = null
         cartItems.clear()
-
         _binding = null
+    }
+
+    // ============================================================
+    // PULL TO REFRESH
+    // ============================================================
+
+    private fun setupSwipeRefresh() {
+        binding.swipeRefresh.setColorSchemeColors(
+            ContextCompat.getColor(requireContext(), R.color.stock_wise_primary)
+        )
+        binding.swipeRefresh.setProgressBackgroundColorSchemeColor(
+            ContextCompat.getColor(requireContext(), android.R.color.white)
+        )
+        binding.swipeRefresh.setDistanceToTriggerSync(180)
+
+        binding.swipeRefresh.setOnRefreshListener {
+            sharedViewModel.refreshDashboardData()
+        }
     }
 
     // ============================================================
@@ -157,61 +150,24 @@ class DashboardFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
-        binding.btnSync.setOnClickListener {
-            if (!isSyncing) {
-                performSync()
-            }
-        }
-
         binding.fabAddItem.setOnClickListener {
             openCartSaleBottomSheet()
         }
     }
 
     // ============================================================
-    // SYNC ANIMATION
+    // SKELETON
     // ============================================================
 
-    private fun performSync() {
-        isSyncing = true
-        binding.btnSync.isEnabled = false
-        binding.btnSync.alpha = 0.7f
-        startSyncAnimation()
-
-        showSkeleton(true)
-        sharedViewModel.refreshDashboardData()
-
-        handler.postDelayed({
-            stopSync()
-        }, SYNC_DURATION)
-    }
-
-    private fun startSyncAnimation() {
-        rotateAnimator = ObjectAnimator.ofFloat(binding.btnSync, "rotation", 0f, 360f).apply {
-            duration = 1000
-            repeatCount = ObjectAnimator.INFINITE
-            start()
-        }
-    }
-
-    private fun stopSync() {
-        rotateAnimator?.cancel()
-        rotateAnimator = null
-        binding.btnSync.rotation = 0f
-        binding.btnSync.isEnabled = true
-        binding.btnSync.alpha = 1.0f
-        isSyncing = false
-    }
-
     private fun showSkeleton(show: Boolean) {
-        if (show) {
+        if (show && isFirstLoad) {
             binding.shimmerFullPage.visibility = View.VISIBLE
             binding.shimmerFullPage.startShimmer()
-            binding.scrollMainContent.visibility = View.GONE
+            binding.swipeRefresh.visibility = View.GONE
         } else {
             binding.shimmerFullPage.visibility = View.GONE
             binding.shimmerFullPage.stopShimmer()
-            binding.scrollMainContent.visibility = View.VISIBLE
+            binding.swipeRefresh.visibility = View.VISIBLE
             isFirstLoad = false
         }
     }
@@ -263,8 +219,6 @@ class DashboardFragment : Fragment() {
                     binding.llEmptyLowStock.visibility = View.GONE
                     binding.rvLowStock.visibility = View.VISIBLE
                 }
-
-                if (isSyncing) stopSync()
             }
         }
 
@@ -278,7 +232,8 @@ class DashboardFragment : Fragment() {
             sharedViewModel.isLoading.collect { isLoading ->
                 if (!isLoading) {
                     showSkeleton(false)
-                    if (isSyncing) stopSync()
+                    // ⬇️ Stop the pull-to-refresh spinner
+                    binding.swipeRefresh.isRefreshing = false
                 }
             }
         }
@@ -286,8 +241,8 @@ class DashboardFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             sharedViewModel.error.collect { error ->
                 error?.let {
-                    if (isSyncing) stopSync()
                     showSkeleton(false)
+                    binding.swipeRefresh.isRefreshing = false
                 }
             }
         }
@@ -433,9 +388,7 @@ class DashboardFragment : Fragment() {
             state = BottomSheetBehavior.STATE_EXPANDED
         }
 
-        // ============================================================
-        // BIND VIEWS
-        // ============================================================
+        // ===== Bind views =====
         val etSearch = view.findViewById<EditText>(R.id.etCartSearch)
         val ivClearSearch = view.findViewById<ImageView>(R.id.ivCartClearSearch)
         val flSearchResultsContainer = view.findViewById<FrameLayout>(R.id.flSearchResultsContainer)
@@ -473,9 +426,6 @@ class DashboardFragment : Fragment() {
         rvSearchResults.adapter = cartSearchAdapter
 
         // ===== Cart adapter =====
-        // FIX: replace items with .copy(...) instead of mutating in place,
-        // so DiffUtil can detect the change and rebind the row (updating
-        // tvCartQuantity immediately).
         cartAdapter = CartAdapter(
             onQuantityChanged = { cartItem, newQty ->
                 val index = cartItems.indexOfFirst { it.item.id == cartItem.item.id }
@@ -585,12 +535,6 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    /**
-     * FIX: replace the item in `cartItems` with .copy(...) when bumping
-     * quantity, instead of mutating the existing CartItem in place. Combined
-     * with the new DiffUtil in CartAdapter, this makes the list-diff see
-     * the change and rebind the affected row.
-     */
     private fun addItemToCart(
         item: Item,
         llEmptyCart: LinearLayout,

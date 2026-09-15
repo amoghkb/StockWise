@@ -1,10 +1,11 @@
 package com.example.stockwise
 
 import android.os.Bundle
-import android.widget.ImageView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
+import com.example.stockwise.auth.AuthSessionManager
 import com.example.stockwise.ui.fragment.BeltsFragment
 import com.example.stockwise.ui.fragment.CalendarFragment
 import com.example.stockwise.ui.fragment.DashboardFragment
@@ -17,6 +18,8 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var bottomNavigationView: BottomNavigationView
+    private lateinit var tvProfile: TextView
+    private lateinit var session: AuthSessionManager
 
     private var activeTag: String = TAG_DASHBOARD
 
@@ -33,13 +36,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        session = AuthSessionManager.getInstance(this)
+
         bottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigationView.labelVisibilityMode = BottomNavigationView.LABEL_VISIBILITY_LABELED
 
-        findViewById<ImageView>(R.id.iv_profile).setOnClickListener {
+        tvProfile = findViewById(R.id.tv_profile)
+        tvProfile.setOnClickListener {
             openProfileFragment()
         }
-
+        updateProfileAvatar()
+        supportFragmentManager.addOnBackStackChangedListener {
+            updateProfileAvatar()
+        }
         activeTag = savedInstanceState?.getString(KEY_ACTIVE_TAG) ?: TAG_DASHBOARD
 
         if (savedInstanceState == null) {
@@ -57,7 +66,6 @@ class MainActivity : AppCompatActivity() {
                 else -> return@setOnItemSelectedListener false
             }
 
-         
             popActivityBackStackIfAny()
 
             if (tag == activeTag) {
@@ -70,9 +78,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Refresh avatar in case the user changed their name in the profile screen
+        updateProfileAvatar()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(KEY_ACTIVE_TAG, activeTag)
+    }
+
+    // ==========================================
+    // PROFILE AVATAR
+    // ==========================================
+
+    /**
+     * Sets the initials shown in the top-bar avatar to match the logged-in user.
+     * Example: "Bala Subramanian" → "BS"
+     */
+    private fun updateProfileAvatar() {
+        val name = session.getUserName().ifBlank { "User" }
+        tvProfile.text = initialsFrom(name)
+    }
+
+    private fun initialsFrom(name: String): String {
+        return name.trim()
+            .split(" ")
+            .filter { it.isNotBlank() }
+            .take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+            .joinToString("")
+            .ifEmpty { "U" }
     }
 
     // ==========================================
@@ -90,11 +127,6 @@ class MainActivity : AppCompatActivity() {
     // BACK STACK CLEANUP
     // ==========================================
 
-    /**
-     * Pops every fragment that was pushed on top of a tab via the activity's
-     * back stack (StockProcureFragment from CalendarFragment, ProfileFragment,
-     * etc.). Called before a tab switch so the newly chosen tab is what shows.
-     */
     private fun popActivityBackStackIfAny() {
         val fm = supportFragmentManager
         if (fm.backStackEntryCount > 0) {
@@ -118,7 +150,6 @@ class MainActivity : AppCompatActivity() {
     private fun showFragment(tag: String) {
         val fm = supportFragmentManager
 
-        // Safety net: if profile is still around for any reason, pop it.
         if (fm.findFragmentByTag(TAG_PROFILE) != null) {
             fm.popBackStack(TAG_PROFILE, FragmentManager.POP_BACK_STACK_INCLUSIVE)
         }

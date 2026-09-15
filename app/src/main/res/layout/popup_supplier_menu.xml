@@ -1,33 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/bg_popup_menu"
     android:orientation="vertical"
-    android:minWidth="160dp"
     android:paddingVertical="4dp">
 
+    <!-- Update row -->
+    <LinearLayout
+        android:id="@+id/menuUpdate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="10dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_edit"
+            app:tint="#374151"
+            android:contentDescription="Update" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="Update"
+            android:textColor="#374151"
+            android:textSize="13sp"
+            android:fontFamily="@font/inter_medium" />
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginHorizontal="8dp"
+        android:background="#F0F0F0" />
+
+    <!-- Delete row -->
     <LinearLayout
         android:id="@+id/menuDelete"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="12dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="10dp"
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true">
 
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_delete"
+            app:tint="#E53935"
+            android:contentDescription="Delete" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="10dp"
             android:text="Delete"
             android:textColor="#E53935"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:fontFamily="@font/inter_medium" />
     </LinearLayout>
 </LinearLayout>
